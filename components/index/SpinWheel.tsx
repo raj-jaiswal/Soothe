@@ -12,20 +12,18 @@ import {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Large wheel — center sits beyond right edge so left half is visible
 const WHEEL_SIZE = SCREEN_WIDTH * 2.0;
 const RADIUS = WHEEL_SIZE / 2;
 
-const BUBBLE_SIZE = 72;
+const BUBBLE_SIZE = 90;
+// Bubble sits near the outer edge
 const BUBBLE_RADIUS = RADIUS - BUBBLE_SIZE / 2 - 14;
-const LABEL_RADIUS = BUBBLE_RADIUS - BUBBLE_SIZE / 2 - 26;
+// Label starts well inside the bubble toward center
+const LABEL_START_RADIUS = BUBBLE_RADIUS - BUBBLE_SIZE / 2 - 50; // shifted inward
+const LABEL_WIDTH = RADIUS * 0.42;
 
 const NUM_ITEMS = 14;
 const ANGLE_STEP = (2 * Math.PI) / NUM_ITEMS;
-
-// 9 o'clock = π radians from positive x-axis
-// Items start at angle 0 (3 o'clock) and we want index 0 at 9 o'clock (π)
-// So initial offset = π
 const SELECTION_ANGLE = Math.PI; // 9 o'clock
 
 interface SpinWheelProps {
@@ -44,12 +42,8 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
   const velocityRef = useRef(0);
   const spinAnimation = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Which index is at the 9 o'clock (left/selection) position?
   const getIndexFromRotation = useCallback(
     (rad: number) => {
-      // The item that started at angle (i * ANGLE_STEP) is now at
-      // (i * ANGLE_STEP + rad). We want the item closest to SELECTION_ANGLE (π).
-      // So: i * ANGLE_STEP + rad ≡ π  →  i = (π - rad) / ANGLE_STEP
       const raw = (SELECTION_ANGLE - rad) / ANGLE_STEP;
       const index = ((Math.round(raw) % NUM_ITEMS) + NUM_ITEMS) % NUM_ITEMS;
       return index % moods.length;
@@ -72,10 +66,8 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       onPanResponderMove: (evt) => {
         const y = evt.nativeEvent.pageY;
         const dy = y - lastY.current;
-        // Drag down = spin clockwise (positive rotation)
-        // Drag up   = spin counter-clockwise (negative rotation)
-        const delta = (dy / SCREEN_HEIGHT) * Math.PI * 0.9;
-
+        // Drag UP = clockwise (positive), drag DOWN = counter-clockwise (negative)
+        const delta = (-dy / SCREEN_HEIGHT) * Math.PI * 0.9;
         currentRotation.current += delta;
         rotation.setValue(currentRotation.current);
 
@@ -91,7 +83,6 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         const momentum = Math.max(-1.2, Math.min(1.2, velocity * 0.18));
         const targetRotation = currentRotation.current + momentum;
 
-        // Snap: we want (SELECTION_ANGLE - targetRotation) to be a multiple of ANGLE_STEP
         const raw = (SELECTION_ANGLE - targetRotation) / ANGLE_STEP;
         const snappedSteps = Math.round(raw);
         const snappedRotation = SELECTION_ANGLE - snappedSteps * ANGLE_STEP;
@@ -114,20 +105,11 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
     })
   ).current;
 
-  // Y position of 9 o'clock on screen (left edge of wheel = SCREEN_WIDTH - RADIUS from left of container)
-  // Since container left = SCREEN_WIDTH - RADIUS, the wheel center is at x=RADIUS in container coords
-  // 9 o'clock point in container: x = RADIUS + RADIUS*cos(π) = RADIUS - RADIUS = 0 → left=0
-  // y = RADIUS + RADIUS*sin(π) = RADIUS + 0 = RADIUS
-  const selectionY = RADIUS; // vertical center of 9 o'clock
-
   return (
     <View style={styles.clipContainer} {...panResponder.panHandlers}>
       <View style={[styles.wheelContainer, { left: SCREEN_WIDTH - RADIUS }]}>
-        {/* Background disc */}
+        {/* Background disc — no border, just dark fill */}
         <View style={styles.outerRing} />
-
-        {/* Center hub */}
-        <View style={styles.innerHub} />
 
         {/* Rotating layer */}
         <Animated.View
@@ -145,39 +127,30 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
             },
           ]}
         >
-          {/* Slice divider lines — from center outward */}
-          {items.map((_, i) => {
-            const angleDeg = (i * ANGLE_STEP * 180) / Math.PI;
-            return (
-              <View
-                key={`line-${i}`}
-                style={[
-                  styles.dividerLine,
-                  { transform: [{ rotate: `${angleDeg}deg` }] },
-                ]}
-              />
-            );
-          })}
-
-          {/* Mood items */}
           {items.map((mood, i) => {
-            // Each item's fixed angle on the wheel
             const angle = i * ANGLE_STEP;
+            const isActive = i % moods.length === activeIndex;
 
+            // Bubble top-left
             const bx = RADIUS + BUBBLE_RADIUS * Math.cos(angle) - BUBBLE_SIZE / 2;
             const by = RADIUS + BUBBLE_RADIUS * Math.sin(angle) - BUBBLE_SIZE / 2;
 
-            const lx = RADIUS + LABEL_RADIUS * Math.cos(angle);
-            const ly = RADIUS + LABEL_RADIUS * Math.sin(angle);
+            // Label: positioned at LABEL_START_RADIUS along the radius
+            // The label View's left edge starts here and extends inward
+            // We rotate the whole label View by the item's angle
+            // so text flows from bubble toward center along the radius line
+            const labelCenterX = RADIUS + LABEL_START_RADIUS * Math.cos(angle);
+            const labelCenterY = RADIUS + LABEL_START_RADIUS * Math.sin(angle);
 
-            // Label runs along radius toward center
-            // +90 so text baseline faces center
-            const labelAngleDeg = (angle * 180) / Math.PI + 90;
-
-            const isActive = i % moods.length === activeIndex;
+            // Rotate label so it lies along the radius
+            // angle is measured from positive x-axis
+            // We want text to read from outer → inner (left to right along radius inward)
+            // So rotate by angle + 180° (flip so it reads inward not outward)
+            let textAngleDeg = (angle * 180) / Math.PI + 180;
 
             return (
               <View key={`${mood.id}-${i}`}>
+                {/* Bubble */}
                 <View
                   style={[
                     styles.bubble,
@@ -189,43 +162,39 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
                     },
                   ]}
                 >
-                  <Image source={mood.image} style={styles.bubbleImage} resizeMode="cover" />
+                  <Image
+                    source={mood.image}
+                    style={styles.bubbleImage}
+                    resizeMode="cover"
+                  />
                   {!isActive && <View style={styles.dimOverlay} />}
                 </View>
 
-                <View
-                  style={[
-                    styles.labelWrapper,
-                    {
-                      left: lx - 50,
-                      top: ly - 10,
-                      transform: [{ rotate: `${labelAngleDeg}deg` }],
-                    },
-                  ]}
-                >
-                  <Text
+                {/* Radial label — hidden when active (pill covers it) */}
+                {!isActive && (
+                  <View
                     style={[
-                      styles.label,
-                      { color: isActive ? '#FFFFFF' : '#555555' },
+                      styles.labelWrapper,
+                      {
+                        width: LABEL_WIDTH,
+                        left: labelCenterX - LABEL_WIDTH,
+                        top: labelCenterY - 10,
+                        transform: [{ rotate: `${textAngleDeg}deg` }],
+                        // anchor rotation from the right edge (outer end)
+                        transformOrigin: 'right center',
+                      },
                     ]}
-                    numberOfLines={1}
                   >
-                    {mood.label}
-                  </Text>
-                </View>
+                    <Text style={styles.label} numberOfLines={1}>
+                      {mood.label}
+                    </Text>
+                  </View>
+                )}
               </View>
             );
           })}
         </Animated.View>
       </View>
-
-      {/* White selector dot at 9 o'clock — left edge, vertically centered */}
-      <View
-        style={[
-          styles.selectorDot,
-          { top: selectionY - 11 },
-        ]}
-      />
     </View>
   );
 }
@@ -246,34 +215,12 @@ const styles = StyleSheet.create({
     width: WHEEL_SIZE,
     height: WHEEL_SIZE,
     borderRadius: RADIUS,
-    backgroundColor: '#222222',
-    borderWidth: 1.5,
-    borderColor: '#3A3A3A',
-  },
-  innerHub: {
-    position: 'absolute',
-    width: RADIUS * 0.3,
-    height: RADIUS * 0.3,
-    borderRadius: RADIUS * 0.15,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1.5,
-    borderColor: '#444',
-    left: RADIUS - RADIUS * 0.15,
-    top: RADIUS - RADIUS * 0.15,
-    zIndex: 10,
+    backgroundColor: '#202020',
   },
   wheel: {
     position: 'absolute',
     width: WHEEL_SIZE,
     height: WHEEL_SIZE,
-  },
-  dividerLine: {
-    position: 'absolute',
-    width: RADIUS * 0.88,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#343434',
-    left: RADIUS,
-    top: RADIUS,
   },
   bubble: {
     position: 'absolute',
@@ -292,27 +239,14 @@ const styles = StyleSheet.create({
   },
   labelWrapper: {
     position: 'absolute',
-    width: 100,
-    alignItems: 'center',
+    alignItems: 'flex-end', // text anchored toward outer ring
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 2,
     textTransform: 'uppercase',
-  },
-  selectorDot: {
-    position: 'absolute',
-    left: 2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
-    zIndex: 30,
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 12,
+    color: '#606060',
+    textAlign: 'right',
   },
 });

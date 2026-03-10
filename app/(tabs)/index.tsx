@@ -13,10 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Must match WHEEL_SIZE in SpinWheel.tsx
+const WHEEL_SIZE = SCREEN_WIDTH * 2.0;
+const WHEEL_RADIUS = WHEEL_SIZE / 2;
 
 export default function HomeScreen() {
-  const [activeIndex, setActiveIndex] = useState(3); // 'love' default
+  const [activeIndex, setActiveIndex] = useState(3);
   const activeMood = MOODS[activeIndex];
 
   return (
@@ -36,16 +40,18 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Wheel + overlaid pill card ── */}
+      {/* ── Wheel area ── */}
       <View style={styles.wheelArea}>
-        {/* Spin wheel fills this area */}
-        <SpinWheel
-          moods={MOODS}
-          activeIndex={activeIndex}
-          onIndexChange={setActiveIndex}
-        />
+        {/* The wheel — fills the area, clips to left half */}
+        <View style={styles.wheelWrapper}>
+          <SpinWheel
+            moods={MOODS}
+            activeIndex={activeIndex}
+            onIndexChange={setActiveIndex}
+          />
+        </View>
 
-        {/* Active mood pill — absolutely centered vertically, at left edge (9 o'clock) */}
+        {/* Pill card — overlaid, perfectly vertically centered = 9 o'clock */}
         <View style={styles.pillOverlay} pointerEvents="none">
           <ActiveMoodCard
             mood={activeMood}
@@ -93,17 +99,24 @@ const styles = StyleSheet.create({
   },
   wheelArea: {
     flex: 1,
-    overflow: 'hidden',
     position: 'relative',
+    overflow: 'hidden',
   },
-  pillOverlay: {
+  wheelWrapper: {
     position: 'absolute',
-    // Vertically centered on the wheel
     top: 0,
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
+    justifyContent: 'center', // vertically center the wheel
+  },
+  pillOverlay: {
+    // Sits exactly at the vertical center = 9 o'clock on the wheel
+    position: 'absolute',
+    left: 0,
+    right: 40,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
-    paddingRight: 40, // leave space so pill doesn't bleed fully off right
   },
 });

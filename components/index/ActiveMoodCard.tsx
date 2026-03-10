@@ -16,8 +16,13 @@ interface ActiveMoodCardProps {
   onPlay: () => void;
 }
 
+// Card height
 const CARD_HEIGHT = 72;
-const IMAGE_SIZE = CARD_HEIGHT + 16;
+// Icon is bigger than the wheel bubble (90px) so it fully covers it
+const IMAGE_SIZE = 110;
+
+// Default grey gradient — used as base, mood color overlaid via opacity
+const GREY_COLORS: [string, string, string] = ['#2A2A2A', '#383838', '#444444'];
 
 export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
   const playScale = useRef(new Animated.Value(1)).current;
@@ -37,7 +42,23 @@ export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
 
   return (
     <View style={styles.container}>
-      {/* Album art overflowing the pill */}
+      {/* Grey base pill — always present */}
+      <LinearGradient
+        colors={GREY_COLORS}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.pill, StyleSheet.absoluteFillObject]}
+      />
+
+      {/* Mood colour overlay — fades over grey */}
+      <LinearGradient
+        colors={mood.colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.pill, StyleSheet.absoluteFillObject, { opacity: 0.85 }]}
+      />
+
+      {/* Large icon — overflows pill, covers wheel bubble underneath */}
       <View style={styles.imageWrapper}>
         <View style={styles.imageCircle}>
           <Image source={mood.image} style={styles.image} resizeMode="cover" />
@@ -45,14 +66,9 @@ export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
         <View style={styles.imageRing} />
       </View>
 
-      {/* Gradient pill */}
-      <LinearGradient
-        colors={mood.colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.pill}
-      >
-        <Text style={styles.label}>{mood.label}</Text>
+      {/* Pill content */}
+      <View style={styles.pillContent}>
+        <Text style={styles.label} numberOfLines={1}>{mood.label}</Text>
 
         <TouchableOpacity
           activeOpacity={1}
@@ -61,10 +77,10 @@ export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
           onPressOut={handlePressOut}
         >
           <Animated.View style={[styles.playButton, { transform: [{ scale: playScale }] }]}>
-            <Ionicons name="play" size={20} color="#1C1C1E" />
+            <Ionicons name="play" size={22} color="#1C1C1E" />
           </Animated.View>
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -72,14 +88,20 @@ export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
 const styles = StyleSheet.create({
   container: {
     height: CARD_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
     marginHorizontal: 16,
+    borderRadius: CARD_HEIGHT / 2,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  pill: {
+    borderRadius: CARD_HEIGHT / 2,
+    height: CARD_HEIGHT,
   },
   imageWrapper: {
     position: 'absolute',
-    left: -6,
-    zIndex: 2,
+    left: -IMAGE_SIZE * 0.28,   // shifted left more — clear gap between pill edge and icon
+    top: -(IMAGE_SIZE - CARD_HEIGHT) / 2,
+    zIndex: 10,
     width: IMAGE_SIZE,
     height: IMAGE_SIZE,
     justifyContent: 'center',
@@ -100,29 +122,31 @@ const styles = StyleSheet.create({
     width: IMAGE_SIZE + 4,
     height: IMAGE_SIZE + 4,
     borderRadius: (IMAGE_SIZE + 4) / 2,
-    borderWidth: 2.5,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  pill: {
-    flex: 1,
-    height: CARD_HEIGHT,
-    borderRadius: CARD_HEIGHT / 2,
+  pillContent: {
+    position: 'absolute',
+    left: IMAGE_SIZE * 0.72,   // leaves space for icon that sticks out left
+    right: 10,
+    top: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: IMAGE_SIZE + 8,
-    paddingRight: 10,
     justifyContent: 'space-between',
   },
   label: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.4,
+    flex: 1,
+    marginRight: 8,
   },
   playButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',

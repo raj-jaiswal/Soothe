@@ -12,19 +12,30 @@ import {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const WHEEL_SIZE = SCREEN_WIDTH * 2.0;
+const WHEEL_SIZE = SCREEN_WIDTH * 1.8;
 const RADIUS = WHEEL_SIZE / 2;
 
 const BUBBLE_SIZE = 90;
-// Bubble sits near the outer edge
-const BUBBLE_RADIUS = RADIUS - BUBBLE_SIZE / 2 - 14;
-// Label starts well inside the bubble toward center
-const LABEL_START_RADIUS = BUBBLE_RADIUS - BUBBLE_SIZE / 2 - 50; // shifted inward
-const LABEL_WIDTH = RADIUS * 0.42;
+// Distance from wheel center to bubble center
+const BUBBLE_R = RADIUS - BUBBLE_SIZE / 2 - 14;
+
+// Label sits inward from bubble inner edge, with a small gap
+// bubble inner edge from center = BUBBLE_R - BUBBLE_SIZE/2
+// We place label center at some radius inward from there
+const LABEL_H = 20;          // label text height
+const LABEL_W = RADIUS * 0.40; // label width (long enough)
+const GAP = 16;              // gap between bubble inner edge and label outer edge
+// Label center radius = bubble inner edge - gap - half label width
+const LABEL_R = (BUBBLE_R - BUBBLE_SIZE / 2) - GAP - LABEL_W / 2;
 
 const NUM_ITEMS = 14;
 const ANGLE_STEP = (2 * Math.PI) / NUM_ITEMS;
-const SELECTION_ANGLE = Math.PI; // 9 o'clock
+
+// Selection point: 9 o'clock = π
+// Item i sits at angle: i * ANGLE_STEP + currentRotation
+// We want item at 9 o'clock when: i * ANGLE_STEP + rotation = π
+// So: rotation = π - i * ANGLE_STEP  →  i = (π - rotation) / ANGLE_STEP
+const SELECTION_ANGLE = Math.PI;
 
 interface SpinWheelProps {
   moods: MoodItem[];
@@ -38,17 +49,59 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
   const rotation = useRef(new Animated.Value(0)).current;
   const currentRotation = useRef(0);
   const lastY = useRef(0);
-  const lastTimestamp = useRef(0);
+  const lastTimestamp = useRef(Date.now());
   const velocityRef = useRef(0);
-  const spinAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const springAnim = useRef<Animated.CompositeAnimation | null>(null);
 
   const getIndexFromRotation = useCallback(
     (rad: number) => {
+      // Which item index is closest to SELECTION_ANGLE?
       const raw = (SELECTION_ANGLE - rad) / ANGLE_STEP;
       const index = ((Math.round(raw) % NUM_ITEMS) + NUM_ITEMS) % NUM_ITEMS;
       return index % moods.length;
     },
     [moods.length]
+  );
+
+  const snapToNearest = useCallback(
+    (fromRotation: number) => {
+      // Snap so that the nearest item lands exactly at π (9 o'clock)
+      const raw = (SELECTION_ANGLE - fromRotation) / ANGLE_STEP;
+      const snappedSteps = Math.round(raw);
+      // rotation = π - snappedIndex * ANGLE_STEP
+      const snappedRotation = SELECTION_ANGLE - snappedSteps * ANGLE_STEP;
+
+      springAnim.current = Animated.spring(rotation, {
+        toValue: snappedRotation,
+        useNativeDriver: true,
+        tension: 35,
+        friction: 16,
+      });
+      springAnim.current.start(({ finished }) => {
+        if (finished) {
+          currentRotation.current = snappedRotation;
+          rotation.setValue(snappedRotation);
+          onIndexChange(getIndexFromRotation(snappedRotation));
+        }
+      });
+    },
+    [rotation, onIndexChange, getIndexFromRotation]
+  );
+
+  const runMomentum = useCallback(
+    (vel: number) => {
+      if (Math.abs(vel) < 0.004) {
+        snapToNearest(currentRotation.current);
+        return;
+      }
+      const nextVel = vel * 0.93;
+      currentRotation.current += vel * 0.016;
+      rotation.setValue(currentRotation.current);
+      onIndexChange(getIndexFromRotation(currentRotation.current));
+      animFrameRef.current = requestAnimationFrame(() => runMomentum(nextVel));
+    },
+    [rotation, onIndexChange, getIndexFromRotation, snapToNearest]
   );
 
   const panResponder = useRef(
@@ -57,7 +110,8 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       onMoveShouldSetPanResponder: () => true,
 
       onPanResponderGrant: (evt) => {
-        if (spinAnimation.current) spinAnimation.current.stop();
+        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        if (springAnim.current) springAnim.current.stop();
         lastY.current = evt.nativeEvent.pageY;
         lastTimestamp.current = Date.now();
         velocityRef.current = 0;
@@ -66,41 +120,22 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       onPanResponderMove: (evt) => {
         const y = evt.nativeEvent.pageY;
         const dy = y - lastY.current;
-        // Drag UP = clockwise (positive), drag DOWN = counter-clockwise (negative)
-        const delta = (-dy / SCREEN_HEIGHT) * Math.PI * 0.9;
+        // Up = clockwise (+), Down = counter-clockwise (-)
+        const delta = (-dy / SCREEN_HEIGHT) * Math.PI * 2.2;
         currentRotation.current += delta;
         rotation.setValue(currentRotation.current);
-
+        onIndexChange(getIndexFromRotation(currentRotation.current));
         const now = Date.now();
-        const dt = now - lastTimestamp.current;
-        if (dt > 0) velocityRef.current = delta / (dt / 1000);
+        const dt = Math.max(now - lastTimestamp.current, 1);
+        velocityRef.current = delta / (dt / 1000);
         lastTimestamp.current = now;
         lastY.current = y;
       },
 
       onPanResponderRelease: () => {
-        const velocity = velocityRef.current;
-        const momentum = Math.max(-1.2, Math.min(1.2, velocity * 0.18));
-        const targetRotation = currentRotation.current + momentum;
-
-        const raw = (SELECTION_ANGLE - targetRotation) / ANGLE_STEP;
-        const snappedSteps = Math.round(raw);
-        const snappedRotation = SELECTION_ANGLE - snappedSteps * ANGLE_STEP;
-
-        spinAnimation.current = Animated.spring(rotation, {
-          toValue: snappedRotation,
-          useNativeDriver: true,
-          tension: 28,
-          friction: 14,
-        });
-
-        spinAnimation.current.start(({ finished }) => {
-          if (finished) {
-            currentRotation.current = snappedRotation;
-            rotation.setValue(snappedRotation);
-            onIndexChange(getIndexFromRotation(snappedRotation));
-          }
-        });
+        const v = Math.max(-12, Math.min(12, velocityRef.current));
+        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = requestAnimationFrame(() => runMomentum(v));
       },
     })
   ).current;
@@ -108,7 +143,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
   return (
     <View style={styles.clipContainer} {...panResponder.panHandlers}>
       <View style={[styles.wheelContainer, { left: SCREEN_WIDTH - RADIUS }]}>
-        {/* Background disc — no border, just dark fill */}
+        {/* Background disc */}
         <View style={styles.outerRing} />
 
         {/* Rotating layer */}
@@ -129,24 +164,26 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         >
           {items.map((mood, i) => {
             const angle = i * ANGLE_STEP;
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
             const isActive = i % moods.length === activeIndex;
 
-            // Bubble top-left
-            const bx = RADIUS + BUBBLE_RADIUS * Math.cos(angle) - BUBBLE_SIZE / 2;
-            const by = RADIUS + BUBBLE_RADIUS * Math.sin(angle) - BUBBLE_SIZE / 2;
+            // ── Bubble: same polar math ──
+            // center of bubble = (RADIUS + BUBBLE_R * cosA,  RADIUS + BUBBLE_R * sinA)
+            const bx = RADIUS + BUBBLE_R * cosA - BUBBLE_SIZE / 2;
+            const by = RADIUS + BUBBLE_R * sinA - BUBBLE_SIZE / 2;
 
-            // Label: positioned at LABEL_START_RADIUS along the radius
-            // The label View's left edge starts here and extends inward
-            // We rotate the whole label View by the item's angle
-            // so text flows from bubble toward center along the radius line
-            const labelCenterX = RADIUS + LABEL_START_RADIUS * Math.cos(angle);
-            const labelCenterY = RADIUS + LABEL_START_RADIUS * Math.sin(angle);
+            // ── Label: same polar math, different radius ──
+            // center of label = (RADIUS + LABEL_R * cosA,  RADIUS + LABEL_R * sinA)
+            const lx = RADIUS + LABEL_R * cosA - LABEL_W / 2;
+            const ly = RADIUS + LABEL_R * sinA - LABEL_H / 2;
 
-            // Rotate label so it lies along the radius
-            // angle is measured from positive x-axis
-            // We want text to read from outer → inner (left to right along radius inward)
-            // So rotate by angle + 180° (flip so it reads inward not outward)
-            let textAngleDeg = (angle * 180) / Math.PI + 180;
+            // Text rotated to lie along the radius line
+            // angle=0 → 3 o'clock, text should read outward along that line
+            // rotate text by angle + 90° so it's perpendicular to the radius... 
+            // Actually we want text ALONG radius: rotate by angle so baseline is along radius
+            // Then flip 180° so first letter is closer to bubble (outer side)
+            const textAngleDeg = (angle * 180) / Math.PI + 180;
 
             return (
               <View key={`${mood.id}-${i}`}>
@@ -154,42 +191,36 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
                 <View
                   style={[
                     styles.bubble,
+                    { left: bx, top: by, opacity: isActive ? 1 : 0.6 },
+                  ]}
+                >
+                  <Image source={mood.image} style={styles.bubbleImage} resizeMode="cover" />
+                </View>
+
+                {/* Label — exact same center calculation as bubble, just LABEL_R */}
+                <View
+                  style={[
+                    styles.labelWrapper,
                     {
-                      left: bx,
-                      top: by,
-                      borderWidth: isActive ? 3 : 0,
-                      borderColor: '#FFFFFF',
+                      left: lx,
+                      top: ly,
+                      width: LABEL_W,
+                      height: LABEL_H,
+                      // Rotate around the center of this view
+                      transform: [{ rotate: `${textAngleDeg}deg` }],
                     },
                   ]}
                 >
-                  <Image
-                    source={mood.image}
-                    style={styles.bubbleImage}
-                    resizeMode="cover"
-                  />
-                  {!isActive && <View style={styles.dimOverlay} />}
-                </View>
-
-                {/* Radial label — hidden when active (pill covers it) */}
-                {!isActive && (
-                  <View
+                  <Text
                     style={[
-                      styles.labelWrapper,
-                      {
-                        width: LABEL_WIDTH,
-                        left: labelCenterX - LABEL_WIDTH,
-                        top: labelCenterY - 10,
-                        transform: [{ rotate: `${textAngleDeg}deg` }],
-                        // anchor rotation from the right edge (outer end)
-                        transformOrigin: 'right center',
-                      },
+                      styles.label,
+                      { color: isActive ? '#BBBBBB' : '#4A4A4A' },
                     ]}
+                    numberOfLines={1}
                   >
-                    <Text style={styles.label} numberOfLines={1}>
-                      {mood.label}
-                    </Text>
-                  </View>
-                )}
+                    {mood.label}
+                  </Text>
+                </View>
               </View>
             );
           })}
@@ -215,7 +246,7 @@ const styles = StyleSheet.create({
     width: WHEEL_SIZE,
     height: WHEEL_SIZE,
     borderRadius: RADIUS,
-    backgroundColor: '#202020',
+    backgroundColor: '#1E1E1E',
   },
   wheel: {
     position: 'absolute',
@@ -233,20 +264,15 @@ const styles = StyleSheet.create({
     width: BUBBLE_SIZE,
     height: BUBBLE_SIZE,
   },
-  dimOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.52)',
-  },
   labelWrapper: {
     position: 'absolute',
-    alignItems: 'flex-end', // text anchored toward outer ring
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   label: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
-    color: '#606060',
-    textAlign: 'right',
   },
 });

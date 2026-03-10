@@ -14,10 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Must match WHEEL_SIZE in SpinWheel.tsx
-const WHEEL_SIZE = SCREEN_WIDTH * 2.0;
-const WHEEL_RADIUS = WHEEL_SIZE / 2;
+const WHEEL_SIZE = SCREEN_WIDTH * 1.8;
 
 export default function HomeScreen() {
   const [activeIndex, setActiveIndex] = useState(3);
@@ -40,18 +37,15 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Wheel area ── */}
+      {/* ── Wheel + pill, starts immediately below header ── */}
       <View style={styles.wheelArea}>
-        {/* The wheel — fills the area, clips to left half */}
-        <View style={styles.wheelWrapper}>
-          <SpinWheel
-            moods={MOODS}
-            activeIndex={activeIndex}
-            onIndexChange={setActiveIndex}
-          />
-        </View>
+        <SpinWheel
+          moods={MOODS}
+          activeIndex={activeIndex}
+          onIndexChange={setActiveIndex}
+        />
 
-        {/* Pill card — overlaid, perfectly vertically centered = 9 o'clock */}
+        {/* Pill overlaid at 9 o'clock — shifted right so name is visible */}
         <View style={styles.pillOverlay} pointerEvents="none">
           <ActiveMoodCard
             mood={activeMood}
@@ -73,8 +67,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingTop: 6,
+    paddingBottom: 8,   // tight — wheel starts right here
   },
   greeting: {
     fontSize: 22,
@@ -99,22 +93,15 @@ const styles = StyleSheet.create({
   },
   wheelArea: {
     flex: 1,
-    position: 'relative',
     overflow: 'hidden',
-  },
-  wheelWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center', // vertically center the wheel
+    position: 'relative',
   },
   pillOverlay: {
-    // Sits exactly at the vertical center = 9 o'clock on the wheel
     position: 'absolute',
-    left: 0,
-    right: 40,
+    // Icon overflows left by IMAGE_SIZE*0.28 (~31px), so shift pill right by that amount
+    // so the icon center lands exactly at x=0 (left edge of screen = 9 o'clock)
+    left: 30,
+    right: 16,
     top: 0,
     bottom: 0,
     justifyContent: 'center',

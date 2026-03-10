@@ -17,29 +17,17 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // 🎛️  TUNING PARAMS — change these to adjust feel
 // ─────────────────────────────────────────────
 
-// How far the wheel rotates per finger swipe (higher = faster drag response)
 const DRAG_SPEED = 2;
-
-// How fast momentum decays after release (0.99 = long coast, 0.85 = stops quickly)
 const MOMENTUM_DECAY = 0.95;
-
-// Max velocity allowed on release (higher = faster flings possible)
 const MAX_VELOCITY = 100;
-
-// Spring tension when snapping to nearest item (higher = snappier)
 const SNAP_TENSION = 75;
-
-// Spring friction when snapping to nearest item (lower = more bouncy)
 const SNAP_FRICTION = 5;
 
 // ─────────────────────────────────────────────
 // 🎨 GRADIENT PARAMS
 // ─────────────────────────────────────────────
 
-// Background color of your screen — must match to blend seamlessly
 const BG_COLOR = '#1C1C1E';
-
-// Height of top and bottom fade in pixels — increase for stronger effect
 const FADE_HEIGHT = 180;
 
 // ─────────────────────────────────────────────
@@ -57,11 +45,7 @@ const LABEL_R = (BUBBLE_R - BUBBLE_SIZE / 2) - GAP - LABEL_W / 2 + WHEEL_RADIUS 
 
 const NUM_ITEMS = 14;
 const ANGLE_STEP = (2 * Math.PI) / NUM_ITEMS;
-
 const SELECTION_ANGLE = Math.PI;
-
-const INITIAL_INDEX = 3;
-const INITIAL_ROTATION = SELECTION_ANGLE - INITIAL_INDEX * ANGLE_STEP;
 
 interface SpinWheelProps {
   moods: MoodItem[];
@@ -72,8 +56,9 @@ interface SpinWheelProps {
 export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps) {
   const items = [...moods, ...moods];
 
-  const rotation = useRef(new Animated.Value(INITIAL_ROTATION)).current;
-  const currentRotation = useRef(INITIAL_ROTATION);
+  const initialRotation = SELECTION_ANGLE - activeIndex * ANGLE_STEP;
+  const rotation = useRef(new Animated.Value(initialRotation)).current;
+  const currentRotation = useRef(initialRotation);
   const lastY = useRef(0);
   const lastTimestamp = useRef(Date.now());
   const velocityRef = useRef(0);
@@ -233,7 +218,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         </Animated.View>
       </View>
 
-      {/* Top fade — icons fade into background */}
+      {/* Top fade */}
       <LinearGradient
         colors={[BG_COLOR, 'transparent']}
         start={{ x: 0, y: 0 }}
@@ -242,7 +227,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         pointerEvents="none"
       />
 
-      {/* Bottom fade — icons fade into background */}
+      {/* Bottom fade */}
       <LinearGradient
         colors={['transparent', BG_COLOR]}
         start={{ x: 0, y: 0 }}

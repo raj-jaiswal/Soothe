@@ -1,112 +1,280 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import SectionHeader from '@/components/explore/SectionHeader';
+import RecentSongCard from '@/components/explore/RecentSongCard';
+import PlaylistCard from '@/components/explore/PlaylistCard';
+import ArtistCard from '@/components/explore/ArtistCard';
+import { RECENT_SONGS, TOP_PLAYLISTS, TOP_ARTISTS } from '@/constants/explore/exploreMockData';
+import { Song, Playlist, Artist } from '@/constants/explore/ExploreTypes';
+import React, { useState } from 'react';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import Feather from '@expo/vector-icons/Feather';
 
-export default function TabTwoScreen() {
+import {
+  View,
+  Text,
+  ScrollView,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  StatusBar,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+
+import {SafeAreaView} from 'react-native-safe-area-context';
+
+// Mood chip data — mirrors the mood wheel concept from the UI
+const MOODS = ['All', 'Chill', 'Happy', 'Sad', 'Focus', 'Hype'];
+
+const ExploreScreen: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeMood, setActiveMood] = useState('All');
+
+  const handleSongPress = (song: Song) => {
+    console.log('Song pressed:', song.title);
+    // Navigate to player screen
+  };
+
+  const handlePlaylistPress = (playlist: Playlist) => {
+    console.log('Playlist pressed:', playlist.name);
+    // Navigate to playlist detail
+  };
+
+  const handleArtistPress = (artist: Artist) => {
+    console.log('Artist pressed:', artist.name);
+    // Navigate to artist profile
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#181818" />
+
+      <ScrollView
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Explore</Text>
+            <Text style={styles.subGreeting}>What's new today 🎵</Text>
+          </View>
+          <TouchableOpacity style={styles.searchIconBtn} activeOpacity={0.7}>
+            {/* Magnifier icon placeholder — swap with your icon lib */}
+            <Text style={styles.searchIconText}>
+              <Feather name="search" size={24} color="white" />
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Search Bar ── */}
+        <View style={styles.searchWrapper}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Artists, songs, playlists…"
+            placeholderTextColor="#555"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        {/* ── Mood Chips ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.moodRow}
+        >
+          {MOODS.map((mood) => (
+            <TouchableOpacity
+              key={mood}
+              style={[
+                styles.moodChip,
+                activeMood === mood && styles.moodChipActive,
+              ]}
+              onPress={() => setActiveMood(mood)}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.moodChipText,
+                  activeMood === mood && styles.moodChipTextActive,
+                ]}
+              >
+                {mood}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* ── Recent Songs ── */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Recent Songs"
+            onSeeAll={() => console.log('See all recent songs')}
+          />
+          <FlatList
+            data={RECENT_SONGS}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+            renderItem={({ item }) => (
+              <RecentSongCard song={item} onPress={handleSongPress} />
+            )}
+          />
+        </View>
+
+        {/* ── Top Playlists ── */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Top Playlists"
+            onSeeAll={() => console.log('See all playlists')}
+          />
+          <FlatList
+            data={TOP_PLAYLISTS}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+            renderItem={({ item }) => (
+              <PlaylistCard playlist={item} onPress={handlePlaylistPress} />
+            )}
+          />
+        </View>
+
+        {/* ── Top Artists ── */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Top Artists"
+            onSeeAll={() => console.log('See all artists')}
+          />
+          <FlatList
+            data={TOP_ARTISTS}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+            renderItem={({ item }) => (
+              <ArtistCard artist={item} onPress={handleArtistPress} />
+            )}
+          />
+        </View>
+
+        {/* Bottom padding so the last section clears the nav bar */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      <LinearGradient
+        colors={['transparent', 'rgba(34,34,34,1)', '#181818']}
+        style={styles.fadeOverlay}
+        pointerEvents = "none"
+      />
+
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#181818',
   },
-  titleContainer: {
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 16,
+  },
+
+  /* Header */
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  greeting: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  subGreeting: {
+    fontSize: 13,
+    color: '#888888',
+    marginTop: 2,
+  },
+  searchIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchIconText: {
+    fontSize: 16,
+  },
+
+  /* Search */
+  searchWrapper: {
+    marginHorizontal: 20,
+    marginBottom: 18,
+    backgroundColor: '#252525',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 46,
+    justifyContent: 'center',
+  },
+  searchInput: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '400',
+  },
+
+  /* Mood chips */
+  moodRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+    marginBottom: 22,
     gap: 8,
   },
+  moodChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#252525',
+    marginRight: 8,
+  },
+  moodChipActive: {
+    backgroundColor: '#8B5CF6',
+  },
+  moodChipText: {
+    fontSize: 13,
+    color: '#888888',
+    fontWeight: '600',
+  },
+  moodChipTextActive: {
+    color: '#FFFFFF',
+  },
+
+  /* Sections */
+  section: {
+    marginBottom: 28,
+  },
+  horizontalList: {
+    paddingHorizontal: 20,
+  },
+
+  /* Fading effect */
+  fadeOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 190,
+  }
 });
+
+export default ExploreScreen;

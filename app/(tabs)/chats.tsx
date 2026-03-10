@@ -1,109 +1,141 @@
-import { Image } from "expo-image";
-import { Platform, StyleSheet } from "react-native";
+import ChatListItem from "@/components/chats/ChatListItem";
+import StoriesRow from "@/components/chats/StoriesRow";
+import { Ionicons } from "@expo/vector-icons";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { HelloWave } from "@/components/hello-wave";
-import ParallaxScrollView from "@/components/parallax-scroll-view";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Link } from "expo-router";
+const chats = [
+  {
+    id: "1",
+    name: "Arvind",
+    message: "Ooh I like the sound of that",
+    avatar: "https://i.pravatar.cc/150?img=1",
+    unread: 0,
+  },
+  {
+    id: "2",
+    name: "Rahul Singla",
+    message: "Sent a song",
+    avatar: "https://i.pravatar.cc/150?img=2",
+    unread: 0,
+  },
+  {
+    id: "3",
+    name: "Piyush Singh",
+    message: "well yeah I am running out of ideas",
+    avatar: "https://i.pravatar.cc/150?img=3",
+    unread: 3,
+  },
+  {
+    id: "4",
+    name: "Mrinalini",
+    message: "Heyy Been a while",
+    avatar: "https://i.pravatar.cc/150?img=4",
+    unread: 0,
+  },
+  {
+    id: "5",
+    name: "Akshara Sen",
+    message: "You sent a song",
+    avatar: "https://i.pravatar.cc/150?img=5",
+    unread: 0,
+  },
+  {
+    id: "6",
+    name: "Aradhana",
+    message: "okay",
+    avatar: "https://i.pravatar.cc/150?img=6",
+    unread: 0,
+  },
+  {
+    id: "7",
+    name: "Arvind",
+    message: "Ooh I like the sound of that",
+    avatar: "https://i.pravatar.cc/150?img=1",
+    unread: 0,
+  },
+  {
+    id: "8",
+    name: "Rahul Singla",
+    message: "Sent a song",
+    avatar: "https://i.pravatar.cc/150?img=2",
+    unread: 0,
+  },
+  {
+    id: "9",
+    name: "Piyush Singh",
+    message: "well yeah I am running out of ideas",
+    avatar: "https://i.pravatar.cc/150?img=3",
+    unread: 3,
+  },
+  {
+    id: "10",
+    name: "Mrinalini",
+    message: "Heyy Been a while",
+    avatar: "https://i.pravatar.cc/150?img=4",
+    unread: 0,
+  },
+  {
+    id: "11",
+    name: "Akshara Sen",
+    message: "You sent a song",
+    avatar: "https://i.pravatar.cc/150?img=5",
+    unread: 0,
+  },
+];
 
-export default function HomeScreen() {
+export default function Chats() {
+  const insets = useSafeAreaInsets();
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
-      headerImage={
-        <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.reactLogo}
-        />
-      }
-    >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Hiiiii
-          <ThemedText type="defaultSemiBold">
-            app/(tabs)/index.tsx
-          </ThemedText>{" "}
-          to see changes. Press{" "}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: "cmd + d",
-              android: "cmd + m",
-              web: "F12",
-            })}
-          </ThemedText>{" "}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction
-              title="Action"
-              icon="cube"
-              onPress={() => alert("Action pressed")}
-            />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert("Share pressed")}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert("Delete pressed")}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Chats</Text>
+        <Ionicons name="person-add" size={24} color="white" />
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">
-            npm run reset-project
-          </ThemedText>{" "}
-          to get a fresh <ThemedText type="defaultSemiBold">app</ThemedText>{" "}
-          directory. This will move the current{" "}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{" "}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <StoriesRow />
+
+      <View style={styles.divider} />
+
+      <FlatList
+        data={chats}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <ChatListItem chat={item} />}
+        style={{ marginBottom: insets.bottom + 50 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: "#1f1f1f",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
+    marginTop: 20,
+    marginBottom: 15,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+
+  title: {
+    fontSize: 28,
+    color: "white",
+    fontWeight: "600",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
+
+  divider: {
+    height: 1,
+    backgroundColor: "#444",
+    marginVertical: 20,
   },
 });

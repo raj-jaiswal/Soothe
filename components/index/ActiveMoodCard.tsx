@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   pillContent: {
     position: 'absolute',
-    left: IMAGE_SIZE * 0.72,   // leaves space for icon that sticks out left
+    left: IMAGE_SIZE * 0.9,    // pushed further right, clear of icon
     right: 10,
     top: 0,
     bottom: 0,

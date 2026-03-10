@@ -4,7 +4,6 @@ export interface MoodItem {
   id: string;
   label: string;
   image: ImageSourcePropType;
-  /** Gradient colors for the active pill card */
   colors: [string, string, string];
 }
 

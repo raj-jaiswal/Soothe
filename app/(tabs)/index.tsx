@@ -19,6 +19,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Must match ActiveMoodCard CARD_HEIGHT
 const CARD_HEIGHT = 72;
 
+// How much to shift pill up from the mathematical 9 o'clock center
+const PILL_VERTICAL_OFFSET = -30;
+
 export default function HomeScreen() {
   const [activeIndex, setActiveIndex] = useState(3);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -28,14 +31,7 @@ export default function HomeScreen() {
     setHeaderHeight(e.nativeEvent.layout.height);
   }, []);
 
-  // wheelArea starts AFTER the header
-  // 9 o'clock Y inside wheelArea = WHEEL_RADIUS
-  // So pill top inside wheelArea = WHEEL_RADIUS - CARD_HEIGHT / 2
-  // No need to subtract header here because pillOverlay is
-  // positioned relative to wheelArea, not the whole screen
-  const pillTop = WHEEL_RADIUS - CARD_HEIGHT / 2;
-
-  // 9 o'clock X on screen = SCREEN_WIDTH - WHEEL_RADIUS
+  const pillTop = WHEEL_RADIUS - CARD_HEIGHT / 2 + PILL_VERTICAL_OFFSET;
   const pillLeft = SCREEN_WIDTH - WHEEL_RADIUS;
 
   return (
@@ -55,7 +51,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Wheel area — starts below header, pill is relative to this */}
+      {/* Wheel area */}
       <View style={styles.wheelArea}>
         <SpinWheel
           moods={MOODS}

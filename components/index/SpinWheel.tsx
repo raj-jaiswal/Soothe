@@ -12,6 +12,27 @@ import {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// ─────────────────────────────────────────────
+// 🎛️  TUNING PARAMS — change these to adjust feel
+// ─────────────────────────────────────────────
+
+// How far the wheel rotates per finger swipe (higher = faster drag response)
+const DRAG_SPEED = 2;
+
+// How fast momentum decays after release (0.99 = long coast, 0.85 = stops quickly)
+const MOMENTUM_DECAY = 0.94;
+
+// Max velocity allowed on release (higher = faster flings possible)
+const MAX_VELOCITY = 100;
+
+// Spring tension when snapping to nearest item (higher = snappier)
+const SNAP_TENSION = 75;
+
+// Spring friction when snapping to nearest item (lower = more bouncy)
+const SNAP_FRICTION = 3;
+
+// ─────────────────────────────────────────────
+
 export const WHEEL_SIZE = SCREEN_WIDTH * 1.8;
 export const WHEEL_RADIUS = WHEEL_SIZE / 2;
 
@@ -28,7 +49,6 @@ const ANGLE_STEP = (2 * Math.PI) / NUM_ITEMS;
 
 const SELECTION_ANGLE = Math.PI;
 
-// Initial index must match useState(3) in index.tsx
 const INITIAL_INDEX = 3;
 const INITIAL_ROTATION = SELECTION_ANGLE - INITIAL_INDEX * ANGLE_STEP;
 
@@ -68,8 +88,8 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       springAnim.current = Animated.spring(rotation, {
         toValue: snapped,
         useNativeDriver: true,
-        tension: 40,
-        friction: 18,
+        tension: SNAP_TENSION,
+        friction: SNAP_FRICTION,
       });
       springAnim.current.start(({ finished }) => {
         if (finished) {
@@ -88,7 +108,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         snapToNearest(currentRotation.current);
         return;
       }
-      const nextVel = vel * 0.93;
+      const nextVel = vel * MOMENTUM_DECAY;
       currentRotation.current += vel * 0.016;
       rotation.setValue(currentRotation.current);
       onIndexChange(getIndexFromRotation(currentRotation.current));
@@ -113,7 +133,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       onPanResponderMove: (evt) => {
         const y = evt.nativeEvent.pageY;
         const dy = y - lastY.current;
-        const delta = (-dy / SCREEN_HEIGHT) * Math.PI * 2.2;
+        const delta = (-dy / SCREEN_HEIGHT) * Math.PI * DRAG_SPEED;
         currentRotation.current += delta;
         rotation.setValue(currentRotation.current);
         onIndexChange(getIndexFromRotation(currentRotation.current));
@@ -125,7 +145,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       },
 
       onPanResponderRelease: () => {
-        const v = Math.max(-12, Math.min(12, velocityRef.current));
+        const v = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocityRef.current));
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = requestAnimationFrame(() => runMomentum(v));
       },

@@ -149,19 +149,6 @@ export default function ProfileScreen() {
         </View>
 
       </ScrollView>
-
-      {/* BOTTOM NAV */}
-
-      <View style={styles.bottomNav}>
-        <Ionicons name="grid-outline" size={22} color="#aaa" />
-        <Ionicons name="list-outline" size={22} color="#aaa" />
-        <Ionicons name="heart-outline" size={22} color="#aaa" />
-        <Ionicons name="chatbubble-outline" size={22} color="#aaa" />
-
-        <View style={styles.profileButton}>
-          <Ionicons name="person" size={22} color="#000" />
-        </View>
-      </View>
     </View>
   );
 }

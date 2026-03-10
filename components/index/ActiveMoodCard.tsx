@@ -16,12 +16,10 @@ interface ActiveMoodCardProps {
   onPlay: () => void;
 }
 
-// Card height
 const CARD_HEIGHT = 72;
-// Icon is bigger than the wheel bubble (90px) so it fully covers it
 const IMAGE_SIZE = 110;
+const BORDER_WIDTH = 2;
 
-// Default grey gradient — used as base, mood color overlaid via opacity
 const GREY_COLORS: [string, string, string] = ['#2A2A2A', '#383838', '#444444'];
 
 export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
@@ -41,54 +39,80 @@ export function ActiveMoodCard({ mood, onPlay }: ActiveMoodCardProps) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Grey base pill — always present */}
+    <View style={styles.outerContainer}>
+      {/* White-to-transparent gradient border — left=transparent, right=white */}
       <LinearGradient
-        colors={GREY_COLORS}
+        colors={['transparent', 'rgba(255,255,255,0.6)', '#FFFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={[styles.pill, StyleSheet.absoluteFillObject]}
+        style={styles.gradientBorder}
       />
 
-      {/* Mood colour overlay — fades over grey */}
-      <LinearGradient
-        colors={mood.colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.pill, StyleSheet.absoluteFillObject, { opacity: 0.85 }]}
-      />
+      {/* Inner pill sits inside the border */}
+      <View style={styles.container}>
+        {/* Grey base pill */}
+        <LinearGradient
+          colors={GREY_COLORS}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.pill, StyleSheet.absoluteFillObject]}
+        />
 
-      {/* Large icon — overflows pill, covers wheel bubble underneath */}
-      <View style={styles.imageWrapper}>
-        <View style={styles.imageCircle}>
-          <Image source={mood.image} style={styles.image} resizeMode="cover" />
+        {/* Mood colour overlay */}
+        <LinearGradient
+          colors={mood.colors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.pill, StyleSheet.absoluteFillObject, { opacity: 0.85 }]}
+        />
+
+        {/* Large icon */}
+        <View style={styles.imageWrapper}>
+          <View style={styles.imageCircle}>
+            <Image source={mood.image} style={styles.image} resizeMode="cover" />
+          </View>
+          <View style={styles.imageRing} />
         </View>
-        <View style={styles.imageRing} />
-      </View>
 
-      {/* Pill content */}
-      <View style={styles.pillContent}>
-        <Text style={styles.label} numberOfLines={1}>{mood.label}</Text>
+        {/* Pill content */}
+        <View style={styles.pillContent}>
+          <Text style={styles.label} numberOfLines={1}>{mood.label}</Text>
 
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={onPlay}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
-          <Animated.View style={[styles.playButton, { transform: [{ scale: playScale }] }]}>
-            <Ionicons name="play" size={22} color="#1C1C1E" />
-          </Animated.View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={onPlay}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+          >
+            <Animated.View style={[styles.playButton, { transform: [{ scale: playScale }] }]}>
+              <Ionicons name="play" size={22} color="#1C1C1E" />
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    marginHorizontal: 16,
+    borderRadius: CARD_HEIGHT / 2 + BORDER_WIDTH,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  // Gradient border sits behind the inner pill
+  gradientBorder: {
+    position: 'absolute',
+    top: -BORDER_WIDTH,
+    left: -BORDER_WIDTH,
+    right: -BORDER_WIDTH,
+    bottom: -BORDER_WIDTH,
+    borderRadius: CARD_HEIGHT / 2 + BORDER_WIDTH,
+    height: CARD_HEIGHT + BORDER_WIDTH * 2,
+  },
   container: {
     height: CARD_HEIGHT,
-    marginHorizontal: 16,
     borderRadius: CARD_HEIGHT / 2,
     overflow: 'visible',
     position: 'relative',
@@ -99,7 +123,7 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     position: 'absolute',
-    left: -IMAGE_SIZE * 0.28,   // shifted left more — clear gap between pill edge and icon
+    left: -IMAGE_SIZE * 0.28,
     top: -(IMAGE_SIZE - CARD_HEIGHT) / 2,
     zIndex: 10,
     width: IMAGE_SIZE,
@@ -127,7 +151,7 @@ const styles = StyleSheet.create({
   },
   pillContent: {
     position: 'absolute',
-    left: IMAGE_SIZE * 0.9,    // pushed further right, clear of icon
+    left: IMAGE_SIZE * 0.9,
     right: 10,
     top: 0,
     bottom: 0,

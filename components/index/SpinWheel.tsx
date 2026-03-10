@@ -1,4 +1,5 @@
 import { MoodItem } from '@/constants/moods';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useRef } from 'react';
 import {
   Animated,
@@ -20,7 +21,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DRAG_SPEED = 2;
 
 // How fast momentum decays after release (0.99 = long coast, 0.85 = stops quickly)
-const MOMENTUM_DECAY = 0.94;
+const MOMENTUM_DECAY = 0.95;
 
 // Max velocity allowed on release (higher = faster flings possible)
 const MAX_VELOCITY = 100;
@@ -29,7 +30,17 @@ const MAX_VELOCITY = 100;
 const SNAP_TENSION = 75;
 
 // Spring friction when snapping to nearest item (lower = more bouncy)
-const SNAP_FRICTION = 3;
+const SNAP_FRICTION = 5;
+
+// ─────────────────────────────────────────────
+// 🎨 GRADIENT PARAMS
+// ─────────────────────────────────────────────
+
+// Background color of your screen — must match to blend seamlessly
+const BG_COLOR = '#1C1C1E';
+
+// Height of top and bottom fade in pixels — increase for stronger effect
+const FADE_HEIGHT = 180;
 
 // ─────────────────────────────────────────────
 
@@ -41,8 +52,8 @@ const BUBBLE_R = WHEEL_RADIUS - BUBBLE_SIZE / 2 - 14;
 
 const LABEL_H = 20;
 const LABEL_W = WHEEL_RADIUS * 0.40;
-const GAP = 4;
-const LABEL_R = (BUBBLE_R - BUBBLE_SIZE / 2) - GAP - LABEL_W / 2 + WHEEL_RADIUS * 0.10;
+const GAP = 20;
+const LABEL_R = (BUBBLE_R - BUBBLE_SIZE / 2) - GAP - LABEL_W / 2 + WHEEL_RADIUS * 0.01;
 
 const NUM_ITEMS = 14;
 const ANGLE_STEP = (2 * Math.PI) / NUM_ITEMS;
@@ -221,6 +232,24 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
           })}
         </Animated.View>
       </View>
+
+      {/* Top fade — icons fade into background */}
+      <LinearGradient
+        colors={[BG_COLOR, 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.fade, { top: 0 }]}
+        pointerEvents="none"
+      />
+
+      {/* Bottom fade — icons fade into background */}
+      <LinearGradient
+        colors={['transparent', BG_COLOR]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.fade, { bottom: 0 }]}
+        pointerEvents="none"
+      />
     </View>
   );
 }
@@ -262,12 +291,19 @@ const styles = StyleSheet.create({
   labelWrapper: {
     position: 'absolute',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   label: {
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
+  },
+  fade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: FADE_HEIGHT,
+    zIndex: 10,
   },
 });

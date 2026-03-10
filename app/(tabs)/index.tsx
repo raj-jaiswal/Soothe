@@ -4,13 +4,16 @@ import { MOODS } from '@/constants/moods';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
+  Dimensions,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const [activeIndex, setActiveIndex] = useState(3); // 'love' default
@@ -33,21 +36,22 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Spin Wheel (left half only) ── */}
-      <View style={styles.wheelWrapper}>
+      {/* ── Wheel + overlaid pill card ── */}
+      <View style={styles.wheelArea}>
+        {/* Spin wheel fills this area */}
         <SpinWheel
           moods={MOODS}
           activeIndex={activeIndex}
           onIndexChange={setActiveIndex}
         />
-      </View>
 
-      {/* ── Active mood pill card ── */}
-      <View style={styles.cardWrapper}>
-        <ActiveMoodCard
-          mood={activeMood}
-          onPlay={() => console.log(`Playing: ${activeMood.label}`)}
-        />
+        {/* Active mood pill — absolutely centered vertically, at left edge (9 o'clock) */}
+        <View style={styles.pillOverlay} pointerEvents="none">
+          <ActiveMoodCard
+            mood={activeMood}
+            onPlay={() => console.log(`Playing: ${activeMood.label}`)}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -87,13 +91,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  wheelWrapper: {
+  wheelArea: {
     flex: 1,
-    justifyContent: 'center',
     overflow: 'hidden',
+    position: 'relative',
   },
-  cardWrapper: {
-    paddingBottom: 20,
-    paddingTop: 12,
+  pillOverlay: {
+    position: 'absolute',
+    // Vertically centered on the wheel
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    paddingRight: 40, // leave space so pill doesn't bleed fully off right
   },
 });

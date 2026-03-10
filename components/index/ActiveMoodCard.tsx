@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 16,
   },
   imageWrapper: {
     position: 'absolute',

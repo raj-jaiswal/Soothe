@@ -21,8 +21,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-        {/* ADD THIS */}
-        <Stack.Screen name="message/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="messages" options={{ headerShown: false }} />
 
         <Stack.Screen
           name="modal"

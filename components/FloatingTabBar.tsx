@@ -1,13 +1,8 @@
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  Animated,
-} from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useCallback, useRef, useState } from "react";
+import { Animated, StyleSheet, TouchableOpacity, View } from "react-native";
 import SootheLogo from "../assets/images/soothe-logo.svg";
-import { useRef, useState, useCallback } from "react";
 
 const TABS = [
   {
@@ -52,14 +47,14 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
   const activeTabRef = useRef("index");
 
   const bubbleX = useRef(new Animated.Value(0)).current;
-  const bubbleBottom = useRef(new Animated.Value(30)).current;
+  const bubbleBottom = useRef(new Animated.Value(20)).current;
 
   // One Animated.Value per tab for its opacity inside the bubble
   // Initialised so only "index" is visible
   const iconOpacity = useRef(
     Object.fromEntries(
-      TABS.map((t) => [t.key, new Animated.Value(t.key === "index" ? 1 : 0)])
-    )
+      TABS.map((t) => [t.key, new Animated.Value(t.key === "index" ? 1 : 0)]),
+    ),
   ).current;
 
   const containerWidth = useRef(0);
@@ -113,7 +108,7 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
           mass: 0.8,
         }),
         Animated.spring(bubbleBottom, {
-          toValue: 30,
+          toValue: 20,
           useNativeDriver: false,
           stiffness: 180,
           damping: 20,
@@ -139,8 +134,8 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
 
       navigation.navigate(key);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bubbleX, bubbleBottom, iconOpacity, navigation]
+
+    [bubbleX, bubbleBottom, iconOpacity, navigation],
   );
 
   return (
@@ -217,7 +212,7 @@ const styles = StyleSheet.create({
 
   container: {
     flexDirection: "row",
-    backgroundColor: "#F2F2F2",
+    backgroundColor: "#FFFFFF",
     height: 60,
     borderRadius: 35,
     width: "100%",
@@ -245,7 +240,7 @@ const styles = StyleSheet.create({
     height: BUBBLE_SIZE,
     borderRadius: BUBBLE_SIZE / 2,
     backgroundColor: "#7B2FF7",
-    elevation: 12,
+    elevation: 4,
     zIndex: 10,
     shadowColor: "#7B2FF7",
     shadowOpacity: 0.35,

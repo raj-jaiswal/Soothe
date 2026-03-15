@@ -4,6 +4,12 @@ import { SpinWheel, WHEEL_RADIUS } from '@/components/index/SpinWheel';
 import { MOODS } from '@/constants/moods';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
+import { useSongPlayer } from '@/components/index/SongPlayerContext';
+
+const { openSong } = useSongPlayer();
+
+// on any song tap:
+openSong({ id: '1', title: 'Song', artist: 'Artist', duration: 240, coverUri: '...' });
 import {
   Animated,
   Dimensions,

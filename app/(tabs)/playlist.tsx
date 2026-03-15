@@ -4,6 +4,7 @@ import {
   Image, TextInput, Modal, Pressable, Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSongPlayer } from '@/components/index/SongPlayerContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,9 @@ const SectionHeader = ({ icon, label, count, expanded, onToggle, accent }: { ico
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PlaylistScreen() {
+  // ✅ Correct — inside the component
+  const { openSong } = useSongPlayer();
+
   const [expanded, setExpanded] = useState<Section>(null);
   const [favourites, setFavourites] = useState<Song[]>(INITIAL_FAVOURITES);
   const [downloads, setDownloads] = useState<Song[]>(INITIAL_DOWNLOADS);
@@ -112,6 +116,17 @@ export default function PlaylistScreen() {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [selectedMood, setSelectedMood] = useState("Calm");
   const [renameText, setRenameText] = useState("");
+
+  // ── Helper to open player ──────────────────────────────────────────────────
+  const handleSongPress = (song: Song) => {
+    openSong({
+      id:       song.id,
+      title:    song.title,
+      artist:   song.artist,
+      duration: 240,
+      coverUri: song.cover,
+    });
+  };
 
   const toggle = (section: Section) => setExpanded((prev) => (prev === section ? null : section));
   const togglePlaylistExpand = (id: string) => setExpandedPlaylistId((prev) => (prev === id ? null : id));
@@ -265,20 +280,19 @@ export default function PlaylistScreen() {
         {expanded === "favourites" && (
           <View style={styles.expandedSection}>
             {filteredFavourites.length === 0 ? <Text style={styles.emptyText}>No favourites yet</Text> : filteredFavourites.map((song) => (
-              <View key={song.id} style={styles.songRow}>
+              <TouchableOpacity key={song.id} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
                 <Image source={{ uri: song.cover }} style={styles.songCover} />
                 <View style={styles.songInfo}>
                   <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
                   <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
                 </View>
-                {/* Tap to unfavourite instantly */}
                 <TouchableOpacity onPress={() => unfavourite(song.id)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
                   <Ionicons name="heart" size={20} color="#7C3AED" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => openFavouriteSongSheet(song)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
                   <Ionicons name="ellipsis-vertical" size={18} color="#555" />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -288,7 +302,7 @@ export default function PlaylistScreen() {
         {expanded === "downloads" && (
           <View style={styles.expandedSection}>
             {downloads.length === 0 ? <Text style={styles.emptyText}>No downloads</Text> : downloads.map((song) => (
-              <View key={song.id} style={styles.songRow}>
+              <TouchableOpacity key={song.id} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
                 <Image source={{ uri: song.cover }} style={styles.songCover} />
                 <View style={styles.songInfo}>
                   <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
@@ -298,7 +312,7 @@ export default function PlaylistScreen() {
                 <TouchableOpacity onPress={() => openDownloadSongSheet(song)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
                   <Ionicons name="ellipsis-vertical" size={18} color="#555" />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -343,20 +357,19 @@ export default function PlaylistScreen() {
                   <Text style={styles.addSongBtnText}>Add Songs</Text>
                 </TouchableOpacity>
                 {playlist.songs.length === 0 ? <Text style={styles.emptyText}>No songs yet — add some!</Text> : playlist.songs.map((song) => (
-                  <View key={song.id} style={styles.songRow}>
+                  <TouchableOpacity key={song.id} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
                     <Image source={{ uri: song.cover }} style={styles.songCover} />
                     <View style={styles.songInfo}>
                       <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
                       <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
                     </View>
-                    {/* Quick remove */}
                     <TouchableOpacity onPress={() => removeSongFromPlaylist(playlist.id, song.id)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
                       <Ionicons name="remove-circle-outline" size={20} color="#555" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => openPlaylistSongSheet(playlist, song)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
                       <Ionicons name="ellipsis-vertical" size={18} color="#555" />
                     </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -426,7 +439,7 @@ export default function PlaylistScreen() {
         </Pressable>
       </Modal>
 
-      {/* Add song to playlist (from favourites/downloads ••• menu) */}
+      {/* Add song to playlist */}
       <Modal visible={addToPlaylistVisible} transparent animationType="slide" onRequestClose={() => setAddToPlaylistVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setAddToPlaylistVisible(false)}>
           <Pressable style={styles.modalSheet} onPress={() => {}}>
@@ -446,7 +459,7 @@ export default function PlaylistScreen() {
         </Pressable>
       </Modal>
 
-      {/* Add songs to a specific playlist (from ••• on playlist card) */}
+      {/* Add songs to a specific playlist */}
       <Modal visible={addSongToPlaylistVisible} transparent animationType="slide" onRequestClose={() => setAddSongToPlaylistVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setAddSongToPlaylistVisible(false)}>
           <Pressable style={[styles.modalSheet, { maxHeight: "75%" }]} onPress={() => {}}>
@@ -472,8 +485,6 @@ export default function PlaylistScreen() {
     </View>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a1a" },

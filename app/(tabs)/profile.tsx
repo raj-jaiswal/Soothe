@@ -11,6 +11,12 @@ import {
 import { PieChart } from "react-native-gifted-charts";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path } from "react-native-svg";
+import { useSongPlayer } from '@/components/index/SongPlayerContext';
+
+const { openSong } = useSongPlayer();
+
+// on any song tap:
+openSong({ id: '1', title: 'Song', artist: 'Artist', duration: 240, coverUri: '...' });
 
 const radialData = [17, 13, 3, 18, 15, 13];
 const colors = [

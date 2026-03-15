@@ -208,6 +208,8 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     alignItems: "center",
+    zIndex: 100,
+    elevation: 100,
   },
 
   container: {

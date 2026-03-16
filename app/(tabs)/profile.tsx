@@ -129,7 +129,7 @@ function MoodWheel() {
       <svg width="100%" height="auto" viewBox={`0 0 ${S} ${S}`} style={{ maxWidth: S }}>
 
         {/* ring base */}
-        <circle cx={CX} cy={CY} r={RO} fill="#282828" />
+        <circle cx={CX} cy={CY} r={RO} fill="#1c1c1c" />
 
         {/* grey segments — inner radius matches each petal's outer radius */}
         {MOODS.map(m => {

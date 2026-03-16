@@ -1,5 +1,8 @@
 import FloatingTabBar from "@/components/FloatingTabBar";
-import { SongPlayerProvider, useSongPlayer } from "@/components/index/SongPlayerContext";
+import {
+  SongPlayerProvider,
+  useSongPlayer,
+} from "@/components/index/SongPlayerContext";
 import SongPlayerScreen from "@/components/index/SongPlayerScreen";
 import { Tabs } from "expo-router";
 import React from "react";
@@ -11,6 +14,7 @@ function TabsWithPlayer() {
   return (
     <View style={styles.root}>
       <Tabs
+        initialRouteName="index"
         tabBar={(props) => <FloatingTabBar {...props} />}
         screenOptions={{ headerShown: false }}
       >

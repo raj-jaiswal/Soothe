@@ -6,7 +6,7 @@ import {
 import SongPlayerScreen from "@/components/index/SongPlayerScreen";
 import { Tabs } from "expo-router";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { Modal, StyleSheet, View } from "react-native";
 
 function TabsWithPlayer() {
   const { activeSong, closeSong } = useSongPlayer();
@@ -25,12 +25,17 @@ function TabsWithPlayer() {
         <Tabs.Screen name="profile" />
       </Tabs>
 
-      {/* Global player — overlays everything when a song is active */}
-      {activeSong && (
-        <View style={StyleSheet.absoluteFillObject}>
+      {/* Modal renders in a native window — above absolutely everything */}
+      <Modal
+        visible={!!activeSong}
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={closeSong}
+      >
+        {activeSong && (
           <SongPlayerScreen song={activeSong} onBack={closeSong} />
-        </View>
-      )}
+        )}
+      </Modal>
     </View>
   );
 }
@@ -44,5 +49,5 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#1C1C1C' },
 });

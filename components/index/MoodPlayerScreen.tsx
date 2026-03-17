@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dimensions,
   Image,
@@ -11,8 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSongPlayer } from './SongPlayerContext';
 import MOOD_SONGS from './moodSongs';
-import SongPlayerScreen from './SongPlayerScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_SIZE = SCREEN_WIDTH - 48;
@@ -27,16 +27,6 @@ const MOOD_COVER: Record<string, any> = {
   grief:    require('@/assets/images/index_page/grief.png'),
 };
 
-const MOOD_ACCENT: Record<string, string> = {
-  anxious:  '#7B61FF',
-  angry:    '#FF4D4D',
-  calm:     '#4DA6FF',
-  love:     '#E0508A',
-  upbeat:   '#4DCC6E',
-  euphoric: '#FF9F40',
-  grief:    '#8888BB',
-};
-
 interface MoodPlayerScreenProps {
   moodId: string;
   moodLabel: string;
@@ -44,40 +34,16 @@ interface MoodPlayerScreenProps {
 }
 
 export default function MoodPlayerScreen({ moodId, moodLabel, onBack }: MoodPlayerScreenProps) {
-  const [activeSong, setActiveSong] = useState<null | {
-    id: string;
-    title: string;
-    artist: string;
-    cover: string;
-    duration: number;
-  }>(null);
+  const { openSong } = useSongPlayer(); // ✅ use context instead of local state
 
-  const key    = moodId.toLowerCase();
-  const songs  = MOOD_SONGS[key] ?? [];
-  const accent = MOOD_ACCENT[key] ?? '#7C3AED';
-  const cover  = MOOD_COVER[key]  ?? 'https://picsum.photos/seed/default/400/400';
-
-  // ── If a song is tapped, show the full-screen player ──
-  if (activeSong) {
-    return (
-      <SongPlayerScreen
-        song={{
-          id:       activeSong.id,
-          title:    activeSong.title,
-          artist:   activeSong.artist,
-          duration: activeSong.duration ?? 240,
-          coverUri: activeSong.cover,
-        }}
-        onBack={() => setActiveSong(null)}
-      />
-    );
-  }
+  const key   = moodId.toLowerCase();
+  const songs = MOOD_SONGS[key] ?? [];
+  const cover = MOOD_COVER[key] ?? 'https://picsum.photos/seed/default/400/400';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor="#111111" />
 
-      {/* ── Top bar ── */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={26} color="#fff" />
@@ -92,24 +58,26 @@ export default function MoodPlayerScreen({ moodId, moodLabel, onBack }: MoodPlay
         </View>
       </View>
 
-      {/* ── Scrollable content ── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Large cover art */}
         <Image source={cover} style={styles.coverArt} resizeMode="cover" />
 
-        {/* Mood title */}
         <Text style={styles.moodTitle}>{moodLabel}</Text>
 
-        {/* Song list — tap any row to open SongPlayerScreen */}
         {songs.map(song => (
           <TouchableOpacity
             key={song.id}
             style={styles.songRow}
-            onPress={() => setActiveSong(song)}
+            onPress={() => openSong({  // ✅ calls context openSong → triggers Modal
+              id:       song.id,
+              title:    song.title,
+              artist:   song.artist,
+              duration: song.duration ?? 240,
+              coverUri: song.cover,
+            })}
             activeOpacity={0.7}
           >
             <Image source={{ uri: song.cover }} style={styles.songCover} />

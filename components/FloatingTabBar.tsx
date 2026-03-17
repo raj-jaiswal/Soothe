@@ -3,6 +3,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useCallback, useRef, useState } from "react";
 import { Animated, StyleSheet, TouchableOpacity, View } from "react-native";
 import SootheLogo from "../assets/images/soothe-logo.svg";
+import { useSongPlayer } from "./index/SongPlayerContext";
 
 const TABS = [
   {
@@ -41,16 +42,15 @@ const BUBBLE_SIZE = 65;
 const TAB_COUNT = TABS.length;
 
 export default function FloatingTabBar({ state, descriptors, navigation }) {
+  // ✅ LINE 1: get activeSong from context
+  const { activeSong } = useSongPlayer();
+
   const [activeTab, setActiveTab] = useState("index");
 
-  // Ref mirrors state — always current inside callbacks, no stale closure issues
   const activeTabRef = useRef("index");
-
   const bubbleX = useRef(new Animated.Value(0)).current;
   const bubbleBottom = useRef(new Animated.Value(20)).current;
 
-  // One Animated.Value per tab for its opacity inside the bubble
-  // Initialised so only "index" is visible
   const iconOpacity = useRef(
     Object.fromEntries(
       TABS.map((t) => [t.key, new Animated.Value(t.key === "index" ? 1 : 0)]),
@@ -59,8 +59,6 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
 
   const containerWidth = useRef(0);
   const initialized = useRef(false);
-
-  // Track in-flight animation so we can stop it before starting a new one
   const runningAnim = useRef<Animated.CompositeAnimation | null>(null);
 
   const getTabCenterX = (key: string) => {
@@ -81,21 +79,17 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
       const current = activeTabRef.current;
       if (key === current) return;
 
-      // Stop any in-flight animation immediately
       if (runningAnim.current) {
         runningAnim.current.stop();
         runningAnim.current = null;
       }
 
-      // Snap outgoing icon to 0 and all others too — clean slate
-      // Only the new active tab should be 1 at end of transition
       TABS.forEach((t) => {
         if (t.key !== key && t.key !== current) {
           iconOpacity[t.key].setValue(0);
         }
       });
 
-      // Update refs + state
       activeTabRef.current = key;
       setActiveTab(key);
 
@@ -113,13 +107,11 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
           stiffness: 180,
           damping: 20,
         }),
-        // Fade out old icon
         Animated.timing(iconOpacity[current], {
           toValue: 0,
           duration: 150,
           useNativeDriver: false,
         }),
-        // Fade in new icon
         Animated.timing(iconOpacity[key], {
           toValue: 1,
           duration: 150,
@@ -134,9 +126,11 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
 
       navigation.navigate(key);
     },
-
     [bubbleX, bubbleBottom, iconOpacity, navigation],
   );
+
+  // ✅ LINE 2: return null when song is open — fully unmounts the tab bar
+  if (activeSong) return null;
 
   return (
     <View style={styles.wrapper}>
@@ -144,11 +138,6 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
         style={styles.container}
         onLayout={(e) => initBubble(e.nativeEvent.layout.width)}
       >
-        {/*
-          The sliding bubble contains ALL icons stacked via absoluteFill.
-          Each icon has its own animated opacity, so only the active one is
-          visible — and they always render centred inside the circle.
-        */}
         <Animated.View
           style={[
             styles.slidingBubble,
@@ -179,7 +168,6 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Inactive icon slots — active slot is an empty placeholder */}
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           const size = tab.key === "index" ? 28 : 22;
@@ -208,10 +196,9 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     alignItems: "center",
-    zIndex: 100,
-    elevation: 100,
+    zIndex: 10,
+    elevation: 10,
   },
-
   container: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
@@ -227,7 +214,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     paddingHorizontal: 10,
   },
-
   iconButton: {
     flex: 1,
     alignItems: "center",
@@ -235,7 +221,6 @@ const styles = StyleSheet.create({
     height: "100%",
     zIndex: 3,
   },
-
   slidingBubble: {
     position: "absolute",
     width: BUBBLE_SIZE,
@@ -249,14 +234,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 14,
   },
-
   bubbleTouchArea: {
     width: "100%",
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
-
   iconCenter: {
     alignItems: "center",
     justifyContent: "center",

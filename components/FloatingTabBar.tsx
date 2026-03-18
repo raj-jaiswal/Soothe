@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, TouchableOpacity, View } from "react-native";
 import SootheLogo from "../assets/images/soothe-logo.svg";
 import { useSongPlayer } from "./index/SongPlayerContext";
@@ -74,8 +74,63 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
     bubbleX.setValue(getTabCenterX("index"));
   }, []);
 
+  useEffect(() => {
+    const route = state.routes[state.index].name;
+
+    // Ignore mic (no animation)
+    if (route === "mic") return;
+
+    if (!TABS.some((t) => t.key === route)) return;
+
+    const current = activeTabRef.current;
+
+    // If already same, do nothing
+    if (current === route) return;
+
+    // 🔥 Animate bubble when navigation happens externally
+    activeTabRef.current = route;
+    setActiveTab(route);
+
+    Animated.spring(bubbleX, {
+      toValue: getTabCenterX(route),
+      useNativeDriver: false,
+      stiffness: 180,
+      damping: 20,
+    }).start();
+
+    Animated.timing(iconOpacity[current], {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+
+    Animated.timing(iconOpacity[route], {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+  }, [state]);
+
   const handlePress = useCallback(
     (key: string) => {
+      const currentRoute = state.routes[state.index].name;
+
+      // 🎯 SPECIAL CASE: middle button toggle
+      if (key === "index") {
+        let target = "index";
+
+        if (currentRoute === "index") {
+          target = "mic";
+        } else if (currentRoute === "mic") {
+          target = "index";
+        }
+
+        // 🚫 NO animation, just navigate
+        navigation.navigate(target);
+        return;
+      }
+
+      // ✅ Normal tabs (with animation)
       const current = activeTabRef.current;
       if (key === current) return;
 
@@ -126,7 +181,7 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
 
       navigation.navigate(key);
     },
-    [bubbleX, bubbleBottom, iconOpacity, navigation],
+    [bubbleX, bubbleBottom, iconOpacity, navigation, state],
   );
 
   // ✅ LINE 2: return null when song is open — fully unmounts the tab bar

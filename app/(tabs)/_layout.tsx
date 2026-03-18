@@ -23,6 +23,7 @@ function TabsWithPlayer() {
         <Tabs.Screen name="index" />
         <Tabs.Screen name="chats" />
         <Tabs.Screen name="profile" />
+        <Tabs.Screen name="mic" />
       </Tabs>
 
       {/* Modal renders in a native window — above absolutely everything */}
@@ -49,5 +50,5 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1C1C1C' },
+  root: { flex: 1, backgroundColor: "#1C1C1C" },
 });

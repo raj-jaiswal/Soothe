@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -42,26 +43,56 @@ const WelcomeScreen: React.FC = () => {
   const btnsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.stagger(150, [
-      Animated.spring(topAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 55,
-        friction: 9,
-      }),
-      Animated.spring(taglineAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 55,
-        friction: 9,
-      }),
-      Animated.spring(btnsAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 55,
-        friction: 9,
-      }),
-    ]).start();
+    const init = async () => {
+      const token = await AsyncStorage.getItem("token");
+
+      if (token) {
+        try {
+          const res = await fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_URL}auth/verify-token`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          if (res.ok) {
+            router.replace("/(tabs)");
+            return;
+          } else {
+            await AsyncStorage.removeItem("token");
+          }
+        } catch {
+          // ignore network error → stay on welcome
+        }
+      }
+
+      // run animations if not redirected
+      Animated.stagger(150, [
+        Animated.spring(topAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 55,
+          friction: 9,
+        }),
+        Animated.spring(taglineAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 55,
+          friction: 9,
+        }),
+        Animated.spring(btnsAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 55,
+          friction: 9,
+        }),
+      ]).start();
+    };
+
+    init();
   }, []);
 
   const fadeUp = (anim: Animated.Value, offset = 36) => ({
@@ -104,7 +135,12 @@ const WelcomeScreen: React.FC = () => {
 
         {/* Title SVG */}
         <Animated.View style={[styles.titleSvg, fadeUp(taglineAnim, 28)]}>
-          <SvgXml xml={titleXml} width="100%" height={undefined} style={{ aspectRatio: 938 / 314 }} />
+          <SvgXml
+            xml={titleXml}
+            width="100%"
+            height={undefined}
+            style={{ aspectRatio: 938 / 314 }}
+          />
         </Animated.View>
 
         {/* Buttons */}

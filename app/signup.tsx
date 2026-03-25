@@ -1,5 +1,6 @@
 import SootheLogo from "@/components/auth/SootheLogo";
 import Feather from "@expo/vector-icons/Feather";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -105,6 +106,9 @@ const OtpModal: React.FC<OtpModalProps> = ({
         body: JSON.stringify({ username, otp }),
       });
       const data = await res.json();
+      if (data.token) {
+        await AsyncStorage.setItem("token", data.token);
+      }
       if (!res.ok) {
         setError(data.error ?? "Verification failed");
         return;
@@ -240,6 +244,16 @@ const SignUpScreen: React.FC = () => {
       spinAnim.setValue(0);
     }
   }, [loading]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = await AsyncStorage.getItem("token");
+      if (token) {
+        router.replace("/(tabs)");
+      }
+    };
+    checkAuth();
+  }, []);
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],

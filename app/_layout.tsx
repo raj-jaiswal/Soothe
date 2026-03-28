@@ -10,7 +10,7 @@ import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
-  anchor: "welcome",  // ← change from "(tabs)" to "welcome"
+  anchor: "welcome", // ← change from "(tabs)" to "welcome"
 };
 
 export default function RootLayout() {
@@ -21,16 +21,17 @@ export default function RootLayout() {
       <Stack>
         {/* ── Auth screens ── */}
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="signup"  options={{ headerShown: false }} />
-        <Stack.Screen name="login"   options={{ headerShown: false }} />
+        <Stack.Screen name="signup" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
 
         {/* ── Main app ── */}
-        <Stack.Screen name="(tabs)"  options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="messages" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}
         />
+        <Stack.Screen name="friends" options={{ headerShown: false }} />
       </Stack>
 
       <StatusBar style="auto" />

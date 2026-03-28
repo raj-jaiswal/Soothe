@@ -97,12 +97,13 @@ function PersonRow({
       </View>
 
       {variant === "pending" ? (
-        <View>
+        <View style={styles.actionRow}>
           <Pressable style={styles.acceptBtn}>
             <Text style={styles.acceptBtnText}>Accept</Text>
           </Pressable>
-          <Pressable>
-            <Ionicons name="close-outline" size={25} color="#8b8b8b" />
+
+          <Pressable style={styles.cancelBtn}>
+            <Ionicons name="close-outline" size={22} color="#8b8b8b" />
           </Pressable>
         </View>
       ) : (
@@ -289,5 +290,14 @@ const styles = StyleSheet.create({
     color: "#111",
     fontWeight: "700",
     fontSize: 13,
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  cancelBtn: {
+    padding: 6,
   },
 });

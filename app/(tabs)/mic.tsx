@@ -1,19 +1,22 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import {
-    Animated,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Animated,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+
 
 const BAR_COUNT = 11;
 
 export default function MicScreen() {
   const router = useRouter();
+
+  const navigation = useNavigation();
 
   // 🔥 Animated values for bars
   const barAnims = useRef(
@@ -47,7 +50,7 @@ export default function MicScreen() {
     <View style={styles.container}>
       {/* Top Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)/index")}>
+        <TouchableOpacity onPress={() => navigation.navigate("index" as never)}>
           <Ionicons name="chevron-back" size={28} color="#EAEAEA" />
         </TouchableOpacity>
 

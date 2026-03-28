@@ -1,9 +1,10 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   SafeAreaView,
   SectionList,
@@ -29,6 +30,11 @@ type FriendsSection = {
   data: Person[];
 };
 
+type ProcessingTask = {
+  id: string;
+  type: "add" | "accept" | "reject";
+} | null;
+
 function getInitials(name?: string) {
   if (!name) return "?"; // Fallback for undefined/null names
 
@@ -53,6 +59,13 @@ export default function FriendsScreen() {
 
   const [loading, setLoading] = useState(true);
 
+  // Track specific button actions for loading spinners
+  const [processingTask, setProcessingTask] = useState<ProcessingTask>(null);
+
+  // Custom Toast State
+  const [toastMsg, setToastMsg] = useState("");
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   // Debounce user search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 500);
@@ -72,6 +85,24 @@ export default function FriendsScreen() {
       setSearchResults([]);
     }
   }, [debouncedQuery]);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setToastMsg(""));
+      }, 2500);
+    });
+  };
 
   const getHeaders = async () => {
     const token = await AsyncStorage.getItem("token");
@@ -118,46 +149,62 @@ export default function FriendsScreen() {
 
   const sendRequest = async (username: string) => {
     try {
-      await fetch(`${BACKEND_URL}friends/request`, {
+      setProcessingTask({ id: username, type: "add" });
+      const res = await fetch(`${BACKEND_URL}friends/request`, {
         method: "POST",
         headers: await getHeaders(),
         body: JSON.stringify({ receiverUsername: username }),
       });
-      // Optionally update UI to show "Request Sent"
-      setQuery("");
+      if (res.ok) {
+        showToast("Friend request sent!");
+        setQuery(""); // Clear search to return to main list
+      }
     } catch (error) {
       console.error("Failed to send request", error);
+    } finally {
+      setProcessingTask(null);
     }
   };
 
   const acceptRequest = async (username: string) => {
     try {
-      await fetch(`${BACKEND_URL}friends/accept`, {
+      setProcessingTask({ id: username, type: "accept" });
+      const res = await fetch(`${BACKEND_URL}friends/accept`, {
         method: "POST",
         headers: await getHeaders(),
         body: JSON.stringify({ senderUsername: username }),
       });
-      fetchFriendsData(); // Refresh list
+      if (res.ok) {
+        showToast("Request accepted!");
+        await fetchFriendsData(); // Refresh list
+      }
     } catch (error) {
       console.error("Failed to accept request", error);
+    } finally {
+      setProcessingTask(null);
     }
   };
 
   const rejectRequest = async (username: string) => {
     try {
-      await fetch(`${BACKEND_URL}friends/reject`, {
+      setProcessingTask({ id: username, type: "reject" });
+      const res = await fetch(`${BACKEND_URL}friends/reject`, {
         method: "POST",
         headers: await getHeaders(),
         body: JSON.stringify({ senderUsername: username }),
       });
-      fetchFriendsData(); // Refresh list
+      if (res.ok) {
+        showToast("Request ignored");
+        await fetchFriendsData(); // Refresh list
+      }
     } catch (error) {
       console.error("Failed to reject request", error);
+    } finally {
+      setProcessingTask(null);
     }
   };
 
   const sections: FriendsSection[] = useMemo(() => {
-    // If the user is actively searching, show search results
     if (debouncedQuery.length > 0) {
       return [
         {
@@ -168,7 +215,6 @@ export default function FriendsScreen() {
       ];
     }
 
-    // Default view
     const s: FriendsSection[] = [];
     if (pending.length > 0) {
       s.push({ title: "Pending Requests", variant: "pending", data: pending });
@@ -185,42 +231,80 @@ export default function FriendsScreen() {
     item: Person;
     section: FriendsSection;
   }) => {
+    const isAdding =
+      processingTask?.id === item.id && processingTask?.type === "add";
+    const isAccepting =
+      processingTask?.id === item.id && processingTask?.type === "accept";
+    const isRejecting =
+      processingTask?.id === item.id && processingTask?.type === "reject";
+    const isProcessingThisUser = processingTask?.id === item.id;
+
+    const isAlreadyFriend = friends.some((f) => f.id === item.id);
+    const isAlreadyPending = pending.some((p) => p.id === item.id);
+
     return (
       <View style={styles.card}>
         <View style={styles.avatar}>
-          {/* Pass the name safely. If name is undefined, it returns "?" */}
           <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
         </View>
 
         <View style={styles.textBlock}>
-          {/* Fallback to handle if name is missing in the DB */}
           <Text style={styles.name}>{item.name || item.handle}</Text>
           <Text style={styles.handle}>{item.handle}</Text>
           {item.note && <Text style={styles.note}>{item.note}</Text>}
         </View>
 
         {section.variant === "search" && (
-          <Pressable
-            style={styles.acceptBtn}
-            onPress={() => sendRequest(item.id)}
-          >
-            <Text style={styles.acceptBtnText}>Add</Text>
-          </Pressable>
+          <>
+            {isAlreadyFriend ? (
+              <Text style={styles.statusText}>Friend</Text>
+            ) : isAlreadyPending ? (
+              <Text style={styles.statusText}>Pending</Text>
+            ) : (
+              <Pressable
+                style={[
+                  styles.acceptBtn,
+                  isProcessingThisUser && { opacity: 0.7 },
+                ]}
+                onPress={() => sendRequest(item.id)}
+                disabled={isProcessingThisUser}
+              >
+                {isAdding ? (
+                  <ActivityIndicator size="small" color="#111" />
+                ) : (
+                  <Text style={styles.acceptBtnText}>Add</Text>
+                )}
+              </Pressable>
+            )}
+          </>
         )}
 
         {section.variant === "pending" && (
           <View style={styles.actionRow}>
             <Pressable
-              style={styles.acceptBtn}
+              style={[
+                styles.acceptBtn,
+                isProcessingThisUser && { opacity: 0.7 },
+              ]}
               onPress={() => acceptRequest(item.id)}
+              disabled={isProcessingThisUser}
             >
-              <Text style={styles.acceptBtnText}>Accept</Text>
+              {isAccepting ? (
+                <ActivityIndicator size="small" color="#111" />
+              ) : (
+                <Text style={styles.acceptBtnText}>Accept</Text>
+              )}
             </Pressable>
             <Pressable
               style={styles.cancelBtn}
               onPress={() => rejectRequest(item.id)}
+              disabled={isProcessingThisUser}
             >
-              <Ionicons name="close-outline" size={22} color="#8b8b8b" />
+              {isRejecting ? (
+                <ActivityIndicator size="small" color="#8b8b8b" />
+              ) : (
+                <Ionicons name="close-outline" size={22} color="#8b8b8b" />
+              )}
             </Pressable>
           </View>
         )}
@@ -279,6 +363,13 @@ export default function FriendsScreen() {
           }
         />
       </View>
+
+      {/* Toast Overlay */}
+      {toastMsg ? (
+        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </Animated.View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -385,6 +476,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    minWidth: 70, // Prevents button from shrinking when loading spinner appears
+    alignItems: "center",
   },
   acceptBtnText: {
     color: "#111",
@@ -398,5 +491,35 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     padding: 6,
+    minWidth: 34,
+    alignItems: "center",
+  },
+  statusText: {
+    color: "#6b6b6b",
+    fontSize: 13,
+    fontWeight: "700",
+    marginRight: 8,
+  },
+  toastContainer: {
+    position: "absolute",
+    bottom: 40,
+    alignSelf: "center",
+    backgroundColor: "#2c2c2c",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    zIndex: 100,
+  },
+  toastText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

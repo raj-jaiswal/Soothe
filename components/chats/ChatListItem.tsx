@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function ChatListItem({ chat }) {
+export default function ChatListItem({ chat }: { chat: any }) {
   const router = useRouter();
 
   return (
@@ -11,8 +11,9 @@ export default function ChatListItem({ chat }) {
         router.push({
           pathname: "/messages/[id]",
           params: {
-            id: chat.id,
+            id: chat.id, // The Room ID
             name: chat.name,
+            recipientUsername: chat.recipientUsername,
           },
         })
       }
@@ -21,7 +22,10 @@ export default function ChatListItem({ chat }) {
 
       <View style={styles.textContainer}>
         <Text style={styles.name}>{chat.name}</Text>
-        <Text style={styles.message}>{chat.message}</Text>
+        {/* Limit preview text length */}
+        <Text style={styles.message} numberOfLines={1}>
+          {chat.message}
+        </Text>
       </View>
 
       {chat.unread > 0 && (
@@ -34,35 +38,11 @@ export default function ChatListItem({ chat }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 14,
-  },
-
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 30,
-    marginRight: 14,
-  },
-
-  textContainer: {
-    flex: 1,
-  },
-
-  name: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  message: {
-    color: "#aaa",
-    fontSize: 13,
-    marginTop: 2,
-  },
-
+  container: { flexDirection: "row", alignItems: "center", marginVertical: 14 },
+  avatar: { width: 50, height: 50, borderRadius: 30, marginRight: 14 },
+  textContainer: { flex: 1 },
+  name: { color: "white", fontSize: 16, fontWeight: "600" },
+  message: { color: "#aaa", fontSize: 13, marginTop: 2 },
   badge: {
     backgroundColor: "white",
     width: 22,
@@ -71,9 +51,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  badgeText: { fontSize: 12, fontWeight: "600" },
 });

@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { jwtDecode } from "jwt-decode"; // <-- IMPORT ADDED
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity, // <-- IMPORT ADDED
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,7 +38,7 @@ type ProcessingTask = {
 } | null;
 
 function getInitials(name?: string) {
-  if (!name) return "?"; // Fallback for undefined/null names
+  if (!name) return "?";
 
   return name
     .split(" ")
@@ -58,26 +60,22 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<Person[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [myUsername, setMyUsername] = useState(""); // <-- NEW STATE FOR MY USERNAME
 
-  // Track specific button actions for loading spinners
   const [processingTask, setProcessingTask] = useState<ProcessingTask>(null);
 
-  // Custom Toast State
   const [toastMsg, setToastMsg] = useState("");
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Debounce user search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 500);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Fetch Friends and Pending Requests on Mount
   useEffect(() => {
     fetchFriendsData();
   }, []);
 
-  // Fetch Search Results when Query changes
   useEffect(() => {
     if (debouncedQuery.length > 0) {
       handleSearch(debouncedQuery);
@@ -115,8 +113,18 @@ export default function FriendsScreen() {
   const fetchFriendsData = async () => {
     try {
       setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      if (token) {
+        const decoded: any = jwtDecode(token);
+        setMyUsername(decoded.username);
+      }
+
       const res = await fetch(`${BACKEND_URL}friends`, {
-        headers: await getHeaders(),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
       const data = await res.json();
       if (res.ok) {
@@ -147,6 +155,22 @@ export default function FriendsScreen() {
     }
   };
 
+  const handleOpenChat = (friendId: string, friendName: string) => {
+    if (!myUsername) return;
+
+    // Generate deterministic Room ID exactly like the backend does
+    const chatId = [myUsername, friendId].sort().join("_");
+
+    router.push({
+      pathname: "/messages/[id]",
+      params: {
+        id: chatId,
+        name: friendName,
+        recipientUsername: friendId,
+      },
+    });
+  };
+
   const sendRequest = async (username: string) => {
     try {
       setProcessingTask({ id: username, type: "add" });
@@ -157,7 +181,7 @@ export default function FriendsScreen() {
       });
       if (res.ok) {
         showToast("Friend request sent!");
-        setQuery(""); // Clear search to return to main list
+        setQuery("");
       }
     } catch (error) {
       console.error("Failed to send request", error);
@@ -176,7 +200,7 @@ export default function FriendsScreen() {
       });
       if (res.ok) {
         showToast("Request accepted!");
-        await fetchFriendsData(); // Refresh list
+        await fetchFriendsData();
       }
     } catch (error) {
       console.error("Failed to accept request", error);
@@ -195,7 +219,7 @@ export default function FriendsScreen() {
       });
       if (res.ok) {
         showToast("Request ignored");
-        await fetchFriendsData(); // Refresh list
+        await fetchFriendsData();
       }
     } catch (error) {
       console.error("Failed to reject request", error);
@@ -243,7 +267,15 @@ export default function FriendsScreen() {
     const isAlreadyPending = pending.some((p) => p.id === item.id);
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={section.variant === "friend" ? 0.7 : 1}
+        onPress={() => {
+          if (section.variant === "friend") {
+            handleOpenChat(item.id, item.name || item.handle);
+          }
+        }}
+      >
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
         </View>
@@ -312,7 +344,7 @@ export default function FriendsScreen() {
         {section.variant === "friend" && (
           <Ionicons name="chevron-forward" size={22} color="#8b8b8b" />
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -364,7 +396,6 @@ export default function FriendsScreen() {
         />
       </View>
 
-      {/* Toast Overlay */}
       {toastMsg ? (
         <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
           <Text style={styles.toastText}>{toastMsg}</Text>
@@ -476,7 +507,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    minWidth: 70, // Prevents button from shrinking when loading spinner appears
+    minWidth: 70,
     alignItems: "center",
   },
   acceptBtnText: {

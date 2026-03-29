@@ -1,94 +1,80 @@
+import "react-native-get-random-values";
+
 import ChatListItem from "@/components/chats/ChatListItem";
 import StoriesRow from "@/components/chats/StoriesRow";
 import { Ionicons } from "@expo/vector-icons";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import CryptoJS from "crypto-js";
+import { useFocusEffect, useRouter } from "expo-router";
+import { jwtDecode } from "jwt-decode";
+import React, { useCallback, useState } from "react";
 import {
-    SafeAreaView,
-    useSafeAreaInsets,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-const chats = [
-  {
-    id: "1",
-    name: "Arvind",
-    message: "Ooh I like the sound of that",
-    avatar: "https://i.pravatar.cc/150?img=1",
-    unread: 0,
-  },
-  {
-    id: "2",
-    name: "Rahul Singla",
-    message: "Sent a song",
-    avatar: "https://i.pravatar.cc/150?img=2",
-    unread: 0,
-  },
-  {
-    id: "3",
-    name: "Piyush Singh",
-    message: "well yeah I am running out of ideas",
-    avatar: "https://i.pravatar.cc/150?img=3",
-    unread: 3,
-  },
-  {
-    id: "4",
-    name: "Mrinalini",
-    message: "Heyy Been a while",
-    avatar: "https://i.pravatar.cc/150?img=4",
-    unread: 0,
-  },
-  {
-    id: "5",
-    name: "Akshara Sen",
-    message: "You sent a song",
-    avatar: "https://i.pravatar.cc/150?img=5",
-    unread: 0,
-  },
-  {
-    id: "6",
-    name: "Aradhana",
-    message: "okay",
-    avatar: "https://i.pravatar.cc/150?img=6",
-    unread: 0,
-  },
-  {
-    id: "7",
-    name: "Arvind",
-    message: "Ooh I like the sound of that",
-    avatar: "https://i.pravatar.cc/150?img=1",
-    unread: 0,
-  },
-  {
-    id: "8",
-    name: "Rahul Singla",
-    message: "Sent a song",
-    avatar: "https://i.pravatar.cc/150?img=2",
-    unread: 0,
-  },
-  {
-    id: "9",
-    name: "Piyush Singh",
-    message: "well yeah I am running out of ideas",
-    avatar: "https://i.pravatar.cc/150?img=3",
-    unread: 3,
-  },
-  {
-    id: "10",
-    name: "Mrinalini",
-    message: "Heyy Been a while",
-    avatar: "https://i.pravatar.cc/150?img=4",
-    unread: 0,
-  },
-  {
-    id: "11",
-    name: "Akshara Sen",
-    message: "You sent a song",
-    avatar: "https://i.pravatar.cc/150?img=5",
-    unread: 0,
-  },
-];
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 export default function Chats() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [myUsername, setMyUsername] = useState("");
+
+  const fetchChats = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return router.replace("/login");
+
+      const decoded: any = jwtDecode(token);
+      setMyUsername(decoded.username);
+
+      const res = await fetch(`${BACKEND_URL}chats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        // Decrypt preview messages
+        const decryptedChats = data.map((chat: any) => {
+          if (chat.message === "Start a conversation...") return chat;
+
+          try {
+            const sharedKey = [decoded.username, chat.recipientUsername]
+              .sort()
+              .join("_");
+            const bytes = CryptoJS.AES.decrypt(chat.message, sharedKey);
+            chat.message =
+              bytes.toString(CryptoJS.enc.Utf8) || "Encrypted Message";
+          } catch (e) {
+            chat.message = "Encrypted Message";
+          }
+          return chat;
+        });
+        setChats(decryptedChats);
+      }
+    } catch (error) {
+      console.error("Failed to fetch chats", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchChats();
+    }, []),
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -97,16 +83,28 @@ export default function Chats() {
       </View>
 
       <StoriesRow />
-
       <View style={styles.divider} />
 
-      <FlatList
-        data={chats}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ChatListItem chat={item} />}
-        style={{ marginBottom: insets.bottom + 50 }}
-        contentContainerStyle={{ paddingBottom: 20 }}
-      />
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#7B2FF7"
+          style={{ marginTop: 50 }}
+        />
+      ) : (
+        <FlatList
+          data={chats}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <ChatListItem chat={item} />}
+          style={{ marginBottom: insets.bottom + 50 }}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ListEmptyComponent={
+            <Text style={{ color: "#888", textAlign: "center", marginTop: 20 }}>
+              No chats yet. Go to Friends to start one!
+            </Text>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -118,7 +116,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -126,16 +123,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 15,
   },
-
-  title: {
-    fontSize: 28,
-    color: "white",
-    fontWeight: "600",
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#444",
-    marginVertical: 20,
-  },
+  title: { fontSize: 28, color: "white", fontWeight: "600" },
+  divider: { height: 1, backgroundColor: "#444", marginVertical: 20 },
 });

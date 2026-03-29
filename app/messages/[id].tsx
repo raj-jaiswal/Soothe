@@ -171,8 +171,6 @@ export default function MessagePage() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={28} color="white" />
           </TouchableOpacity>
-          <Text style={styles.title}>{name}</Text>
-          <Ionicons name="call-outline" size={22} color="white" />
         </View>
 
         <FlatList

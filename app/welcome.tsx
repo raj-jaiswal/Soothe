@@ -46,6 +46,8 @@ const WelcomeScreen: React.FC = () => {
     const init = async () => {
       const token = await AsyncStorage.getItem("token");
 
+      console.log(process.env.EXPO_PUBLIC_BACKEND_URL);
+
       if (token) {
         try {
           const res = await fetch(

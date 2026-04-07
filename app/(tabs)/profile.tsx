@@ -1,10 +1,13 @@
 // profile.tsx
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
-import { AntDesign, FontAwesome } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { AntDesign, Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -21,6 +24,8 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from "react-native-svg";
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 type Mood = { label: string; count: number; angleDeg: number };
 
@@ -59,18 +64,105 @@ const pt = (cx: number, cy: number, r: number, a: number) => ({
 
 export default function MusicProfile() {
   const [ready, setReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [friendCount, setFriendCount] = useState(0);
+  const [displayName, setDisplayName] = useState("User");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [bio, setBio] = useState("Playing with my piano\nsince 3AM");
+  const [profileImage, setProfileImage] = useState("");
   const { openSong } = useSongPlayer();
   const router = useRouter();
+
+  const fetchFriendCount = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const res = await fetch(`${BACKEND_URL}friends`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setFriendCount((data.friends || []).length);
+      }
+    } catch (error) {
+      console.error("Failed to fetch friend count", error);
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const res = await fetch(`${BACKEND_URL}user/me`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProfileUsername(data.username || "");
+        setDisplayName(data.fullname || data.name || data.username || "User");
+        setBio(data.bio || "Playing with my piano\nsince 3AM");
+        setProfileImage(data.profileImage || "");
+      }
+    } catch (error) {
+      console.error("Failed to fetch profile", error);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const loadData = async () => {
+        setIsLoading(true);
+        await Promise.all([fetchFriendCount(), fetchProfile()]);
+        if (isActive) {
+          setIsLoading(false);
+        }
+      };
+
+      loadData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [fetchFriendCount, fetchProfile]),
+  );
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 160);
     return () => clearTimeout(t);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("token");
+      router.replace("/welcome");
+    } catch (error) {
+      console.error("Error logging out", error);
+    }
+  };
+
   const SCREEN_W = Math.min(Dimensions.get("window").width, 420);
   const NAV_HEIGHT = 80;
   const TOP_PADDING = 36;
   const SVG_SIZE = Math.min(360, SCREEN_W - 36);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#c084fc" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -87,18 +179,29 @@ export default function MusicProfile() {
         <View style={styles.header}>
           <View style={styles.avatarOuter}>
             <View style={styles.avatarInner}>
-              <Text style={styles.avatarEmoji}>🎩</Text>
+              {profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.avatarInnerImage}
+                />
+              ) : (
+                <Text style={styles.avatarEmoji}>🎩</Text>
+              )}
             </View>
           </View>
           <View style={styles.headerIcons}>
-            <Pressable style={styles.iconBtn}>
+            <Pressable
+              style={styles.iconBtn}
+              onPress={() => router.push("/edit-profile")}
+            >
               <View style={styles.iconStub}>
                 <AntDesign name="edit" size={24} color="white" />
               </View>
             </Pressable>
-            <Pressable style={styles.iconBtn}>
+            <Pressable style={styles.iconBtn} onPress={handleLogout}>
               <View style={styles.iconStub}>
-                <FontAwesome name="gear" size={24} color="white" />
+                {/* Changed to Feather icon and colored red for distinction */}
+                <Feather name="log-out" size={24} color="#ff4a4a" />
               </View>
             </Pressable>
           </View>
@@ -106,19 +209,18 @@ export default function MusicProfile() {
 
         <View style={styles.profileTextBlock}>
           <View style={styles.nameRow}>
-            <Text style={styles.name}>Sravan</Text>
-            <Text style={styles.handle}>(~savvu)</Text>
+            <Text style={styles.name}>{displayName}</Text>
+          </View>
+          <View>
+            <Text style={styles.handle}>(~{profileUsername || "user"})</Text>
           </View>
           <View style={styles.bioRow}>
-            <Text style={styles.bio}>
-              Playing with my piano{"\n"}
-              since 3AM
-            </Text>
+            <Text style={styles.bio}>{bio}</Text>
             <Pressable
               style={styles.friendsBtn}
               onPress={() => router.push("/friends")}
             >
-              <Text style={styles.friendsBtnText}>0 Friends</Text>
+              <Text style={styles.friendsBtnText}>{friendCount} Friends</Text>
             </Pressable>
           </View>
         </View>
@@ -370,6 +472,11 @@ function SongRow({
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#151515" },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   header: {
     width: "92%",
     flexDirection: "row",
@@ -395,6 +502,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#333",
   },
+  avatarInnerImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
   avatarEmoji: { fontSize: 40 },
   headerIcons: { flexDirection: "row", gap: 16, marginTop: 10 },
   profileTextBlock: { width: "92%", marginTop: 12 },
@@ -415,7 +527,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   friendsBtnText: { color: "#111", fontWeight: "600" },
-  safe: { flex: 1, backgroundColor: "#151515" },
   container: { flex: 1 },
   headerContainer: {
     width: "92%",

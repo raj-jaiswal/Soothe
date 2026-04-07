@@ -5,8 +5,8 @@ import { SpinWheel, WHEEL_RADIUS } from "@/components/index/SpinWheel";
 import { MOODS } from "@/constants/moods";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Animated,
@@ -95,6 +95,17 @@ export default function HomeScreen() {
     checkAuth();
   }, []);
 
+  // ✅ CLOSE SEARCH WHEN LEAVING SCREEN
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSearchOpen(false);
+        setSearchText("");
+        dropdownAnim.setValue(0);
+      };
+    }, [])
+  );
+
   const pillTop = WHEEL_RADIUS - CARD_HEIGHT / 2 + PILL_VERTICAL_OFFSET;
   const pillLeft = SCREEN_WIDTH - WHEEL_RADIUS;
 
@@ -166,6 +177,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#1C1C1E" />
 
+      {/* tap outside closes search */}
       {searchOpen && (
         <TouchableWithoutFeedback onPress={closeSearch}>
           <View style={StyleSheet.absoluteFillObject} />
@@ -236,33 +248,35 @@ export default function HomeScreen() {
       </View>
 
       {searchOpen && recentSearches.length > 0 && (
-        <Animated.View
-          style={[
-            styles.dropdown,
-            {
-              top: headerBottom + 4,
-              opacity: dropdownOpacity,
-              transform: [{ translateY: dropdownTranslateY }],
-            },
-          ]}
-        >
-          <FlatList
-            data={recentSearches.slice(0, MAX_SHOWN)}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.recentItem}
-                onPress={() => selectRecent(item)}
-              >
-                <Ionicons name="time-outline" size={16} color="#666" />
-                <Text style={styles.recentText}>{item}</Text>
-                <TouchableOpacity onPress={() => deleteRecent(item)}>
-                  <Ionicons name="close" size={16} color="#555" />
+        <TouchableWithoutFeedback>
+          <Animated.View
+            style={[
+              styles.dropdown,
+              {
+                top: headerBottom + 4,
+                opacity: dropdownOpacity,
+                transform: [{ translateY: dropdownTranslateY }],
+              },
+            ]}
+          >
+            <FlatList
+              data={recentSearches.slice(0, MAX_SHOWN)}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.recentItem}
+                  onPress={() => selectRecent(item)}
+                >
+                  <Ionicons name="time-outline" size={16} color="#666" />
+                  <Text style={styles.recentText}>{item}</Text>
+                  <TouchableOpacity onPress={() => deleteRecent(item)}>
+                    <Ionicons name="close" size={16} color="#555" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            )}
-          />
-        </Animated.View>
+              )}
+            />
+          </Animated.View>
+        </TouchableWithoutFeedback>
       )}
     </SafeAreaView>
   );

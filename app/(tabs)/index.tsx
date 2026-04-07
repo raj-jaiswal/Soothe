@@ -4,7 +4,10 @@ import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { SpinWheel, WHEEL_RADIUS } from "@/components/index/SpinWheel";
 import { MOODS } from "@/constants/moods";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+
 import {
   Animated,
   Dimensions,
@@ -20,17 +23,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const { openSong } = useSongPlayer();
-
-// on any song tap:
-openSong({
-  id: "1",
-  title: "Song",
-  artist: "Artist",
-  duration: 240,
-  coverUri: "...",
-});
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const CARD_HEIGHT = 72;
@@ -39,6 +31,10 @@ const MAX_RECENT = 10;
 const MAX_SHOWN = 7;
 
 export default function HomeScreen() {
+  const router = useRouter();
+
+  const { openSong } = useSongPlayer();
+
   const [activeIndex, setActiveIndex] = useState(3);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -52,6 +48,42 @@ export default function HomeScreen() {
   const dropdownAnim = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
   const activeMood = MOODS[activeIndex];
+
+  // ✅ AUTH CHECK
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = await AsyncStorage.getItem("token");
+
+      // ❌ No token → redirect
+      if (!token) {
+        router.replace("/welcome"); // ✅ FIXED
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}auth/verify-token`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        // ❌ Invalid token → remove + redirect
+        if (!res.ok) {
+          await AsyncStorage.removeItem("token");
+          router.replace("/welcome"); // ✅ FIXED
+        }
+      } catch (err) {
+        // ❌ Network error → redirect
+        router.replace("/welcome"); // ✅ FIXED
+      }
+    };
+
+    checkAuth();
+  }, [router]); // ✅ FIXED
 
   const pillTop = WHEEL_RADIUS - CARD_HEIGHT / 2 + PILL_VERTICAL_OFFSET;
   const pillLeft = SCREEN_WIDTH - WHEEL_RADIUS;
@@ -87,12 +119,10 @@ export default function HomeScreen() {
   };
 
   const deleteRecent = (item: string) => {
-    console.log(`🗑️ Deleted: "${item}"`);
     setRecentSearches((prev) => prev.filter((s) => s !== item));
   };
 
   const selectRecent = (item: string) => {
-    console.log(`📌 Selected: "${item}"`);
     setSearchText(item);
     inputRef.current?.focus();
   };
@@ -101,18 +131,16 @@ export default function HomeScreen() {
     inputRange: [0, 1],
     outputRange: [0, 1],
   });
+
   const dropdownTranslateY = dropdownAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [-8, 0],
   });
 
-  // Open genre player page
   const openPlayer = () => {
-    console.log(`▶️ Opening player for: ${activeMood.label}`);
     setPlayerMood({ id: activeMood.id, label: activeMood.label });
   };
 
-  // Show genre player full screen
   if (playerMood) {
     return (
       <MoodPlayerScreen
@@ -127,14 +155,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#1C1C1E" />
 
-      {/* Tap outside overlay */}
       {searchOpen && (
         <TouchableWithoutFeedback onPress={closeSearch}>
           <View style={StyleSheet.absoluteFillObject} />
         </TouchableWithoutFeedback>
       )}
 
-      {/* Header */}
       <View
         style={styles.header}
         onLayout={(e) => {
@@ -144,12 +170,7 @@ export default function HomeScreen() {
       >
         {searchOpen ? (
           <View style={styles.searchBar}>
-            <Ionicons
-              name="search"
-              size={18}
-              color="#888"
-              style={styles.searchIcon}
-            />
+            <Ionicons name="search" size={18} color="#888" />
             <TextInput
               ref={inputRef}
               style={styles.searchInput}
@@ -163,14 +184,11 @@ export default function HomeScreen() {
               autoFocus={true}
             />
             {searchText.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchText("")}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+              <TouchableOpacity onPress={() => setSearchText("")}>
                 <Ionicons name="close-circle" size={18} color="#888" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={closeSearch} style={styles.cancelButton}>
+            <TouchableOpacity onPress={closeSearch}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -182,18 +200,13 @@ export default function HomeScreen() {
               </Text>
               <Text style={styles.subtitle}>How's your mood today?</Text>
             </View>
-            <TouchableOpacity
-              style={styles.searchButton}
-              activeOpacity={0.7}
-              onPress={openSearch}
-            >
+            <TouchableOpacity onPress={openSearch}>
               <Ionicons name="search" size={22} color="#fff" />
             </TouchableOpacity>
           </>
         )}
       </View>
 
-      {/* Wheel */}
       <View style={styles.wheelArea}>
         <SpinWheel
           moods={MOODS}
@@ -202,13 +215,11 @@ export default function HomeScreen() {
         />
         <View
           style={[styles.pillOverlay, { top: pillTop, left: pillLeft }]}
-          pointerEvents="box-none"
         >
           <ActiveMoodCard mood={activeMood} onPlay={openPlayer} />
         </View>
       </View>
 
-      {/* Search dropdown */}
       {searchOpen && recentSearches.length > 0 && (
         <Animated.View
           style={[
@@ -223,33 +234,18 @@ export default function HomeScreen() {
           <FlatList
             data={recentSearches.slice(0, MAX_SHOWN)}
             keyExtractor={(item) => item}
-            keyboardShouldPersistTaps="handled"
-            scrollEnabled={recentSearches.length > MAX_SHOWN}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.recentItem}
-                activeOpacity={0.7}
                 onPress={() => selectRecent(item)}
               >
-                <Ionicons
-                  name="time-outline"
-                  size={16}
-                  color="#666"
-                  style={styles.recentIcon}
-                />
-                <Text style={styles.recentText} numberOfLines={1}>
-                  {item}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => deleteRecent(item)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.deleteButton}
-                >
+                <Ionicons name="time-outline" size={16} color="#666" />
+                <Text style={styles.recentText}>{item}</Text>
+                <TouchableOpacity onPress={() => deleteRecent(item)}>
                   <Ionicons name="close" size={16} color="#555" />
                 </TouchableOpacity>
               </TouchableOpacity>
             )}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
         </Animated.View>
       )}

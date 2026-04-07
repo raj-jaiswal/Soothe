@@ -4,9 +4,9 @@ import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { SpinWheel, WHEEL_RADIUS } from "@/components/index/SpinWheel";
 import { MOODS } from "@/constants/moods";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 
 import {
   Animated,
@@ -32,8 +32,10 @@ const MAX_SHOWN = 7;
 
 export default function HomeScreen() {
   const router = useRouter();
-
   const { openSong } = useSongPlayer();
+
+  const [username, setUsername] = useState("");
+  const [greeting, setGreeting] = useState("Hello");
 
   const [activeIndex, setActiveIndex] = useState(3);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,14 +51,19 @@ export default function HomeScreen() {
   const inputRef = useRef<TextInput>(null);
   const activeMood = MOODS[activeIndex];
 
-  // ✅ AUTH CHECK
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       const token = await AsyncStorage.getItem("token");
 
-      // ❌ No token → redirect
       if (!token) {
-        router.replace("/welcome"); // ✅ FIXED
+        router.replace("/welcome");
         return;
       }
 
@@ -71,19 +78,22 @@ export default function HomeScreen() {
           }
         );
 
-        // ❌ Invalid token → remove + redirect
         if (!res.ok) {
           await AsyncStorage.removeItem("token");
-          router.replace("/welcome"); // ✅ FIXED
+          router.replace("/welcome");
+          return;
         }
-      } catch (err) {
-        // ❌ Network error → redirect
-        router.replace("/welcome"); // ✅ FIXED
+
+        const data = await res.json();
+        setUsername(data.user.username);
+        setGreeting(getGreeting());
+      } catch {
+        router.replace("/welcome");
       }
     };
 
     checkAuth();
-  }, [router]); // ✅ FIXED
+  }, []);
 
   const pillTop = WHEEL_RADIUS - CARD_HEIGHT / 2 + PILL_VERTICAL_OFFSET;
   const pillLeft = SCREEN_WIDTH - WHEEL_RADIUS;
@@ -108,13 +118,14 @@ export default function HomeScreen() {
   const submitSearch = () => {
     const trimmed = searchText.trim();
     if (!trimmed) return;
-    console.log(`🔍 Search submitted: "${trimmed}"`);
+
     setRecentSearches((prev) => {
       const filtered = prev.filter((s) => s !== trimmed);
       const updated = [trimmed, ...filtered];
       if (updated.length > MAX_RECENT) updated.pop();
       return updated;
     });
+
     closeSearch();
   };
 
@@ -196,10 +207,14 @@ export default function HomeScreen() {
           <>
             <View>
               <Text style={styles.greeting}>
-                Good Morning <Text style={styles.greetingBold}>Sravan</Text>
+                {greeting}{" "}
+                <Text style={styles.greetingBold}>{username}</Text>
               </Text>
-              <Text style={styles.subtitle}>How's your mood today?</Text>
+              <Text style={styles.subtitle}>
+                How's your mood today?
+              </Text>
             </View>
+
             <TouchableOpacity onPress={openSearch}>
               <Ionicons name="search" size={22} color="#fff" />
             </TouchableOpacity>
@@ -276,12 +291,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.2,
   },
-  searchButton: {
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   searchBar: {
     flex: 1,
     flexDirection: "row",
@@ -291,9 +300,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     height: 40,
   },
-  searchIcon: { marginRight: 6 },
-  searchInput: { flex: 1, color: "#FFFFFF", fontSize: 16, paddingVertical: 0 },
-  cancelButton: { marginLeft: 10 },
+  searchInput: { flex: 1, color: "#FFFFFF", fontSize: 16 },
   cancelText: { color: "#888", fontSize: 15 },
   wheelArea: { flex: 1, overflow: "hidden", position: "relative" },
   pillOverlay: {
@@ -310,11 +317,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     zIndex: 200,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 10,
   },
   recentItem: {
     flexDirection: "row",
@@ -322,8 +324,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
-  recentIcon: { marginRight: 12 },
   recentText: { flex: 1, color: "#FFFFFF", fontSize: 15 },
-  deleteButton: { padding: 4 },
-  separator: { height: 1, backgroundColor: "#333", marginLeft: 44 },
 });

@@ -100,7 +100,7 @@ const OtpModal: React.FC<OtpModalProps> = ({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BACKEND_URL}auth/verify-otp`, {
+      const res = await fetch(`${BACKEND_URL}api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, otp }),
@@ -274,7 +274,7 @@ const SignUpScreen: React.FC = () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      const url = `${BACKEND_URL}auth/signup`;
+      const url = `${BACKEND_URL}api/auth/signup`;
       console.log("Signup URL:", url);
 
       const res = await fetch(url, {

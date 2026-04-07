@@ -1,10 +1,18 @@
-import { useState } from "react";
-import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Image, TextInput, Modal, Pressable, Alert,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSongPlayer } from '@/components/index/SongPlayerContext';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  Modal, Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,10 +95,14 @@ const SectionHeader = ({ icon, label, count, expanded, onToggle, accent }: { ico
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 export default function PlaylistScreen() {
   // ✅ Correct — inside the component
   const { openSong } = useSongPlayer();
+    const getToken = async () => {
+    return await AsyncStorage.getItem("token");
+  };
 
   const [expanded, setExpanded] = useState<Section>(null);
   const [favourites, setFavourites] = useState<Song[]>(INITIAL_FAVOURITES);
@@ -116,6 +128,44 @@ export default function PlaylistScreen() {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [selectedMood, setSelectedMood] = useState("Calm");
   const [renameText, setRenameText] = useState("");
+
+    useEffect(() => {
+    fetchPlaylists();
+  }, []);
+
+  const fetchPlaylists = async () => {
+    try {
+      const token = await getToken();
+
+      const res = await fetch(`${BACKEND_URL}api/personal-playlists/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log("Fetch failed:", data);
+        return;
+      }
+
+      const formatted = data.map((p: any) => ({
+        id: p.playlistId,
+        name: p.nameOfPlaylist,
+        songs: p.songs || [],
+        cover: "https://picsum.photos/60/60",
+        mood: (p.moods && p.moods[0]) || "Calm",
+        pinned: false,
+      }));
+
+      setPlaylists(formatted);
+    } catch (err) {
+      console.log("Error fetching playlists:", err);
+    }
+  };
 
   // ── Helper to open player ──────────────────────────────────────────────────
   const handleSongPress = (song: Song) => {
@@ -226,10 +276,48 @@ export default function PlaylistScreen() {
     setSheetVisible(true);
   };
 
-  const handleCreate = () => {
+    const handleCreate = async () => {
     if (!newPlaylistName.trim()) return;
-    setPlaylists((prev) => [...prev, { id: String(Date.now()), name: newPlaylistName.trim(), songs: [], cover: `https://picsum.photos/seed/${Date.now()}/60/60`, mood: selectedMood }]);
-    setNewPlaylistName(""); setSelectedMood("Calm"); setCreateVisible(false);
+
+    try {
+      const token = await getToken();
+
+      const res = await fetch(`${BACKEND_URL}api/personal-playlists/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nameOfPlaylist: newPlaylistName.trim(),
+          moods: [selectedMood],
+          songs: [],
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log("Create failed:", data);
+        return;
+      }
+
+      const newPlaylist = {
+        id: data.playlistId,
+        name: data.nameOfPlaylist,
+        songs: data.songs || [],
+        cover: "https://picsum.photos/60/60",
+        mood: (data.moods && data.moods[0]) || "Calm",
+        pinned: false,
+      };
+
+      setPlaylists((prev) => [...prev, newPlaylist]);
+      setNewPlaylistName("");
+      setSelectedMood("Calm");
+      setCreateVisible(false);
+    } catch (err) {
+      console.log("Error creating playlist:", err);
+    }
   };
 
   // ── Derived lists ──────────────────────────────────────────────────────────

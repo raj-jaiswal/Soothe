@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+const API_BASE = `${BACKEND_URL}api`;
 
 const WAVE_HEIGHTS = [24, 38, 52, 44, 60, 44, 52, 38, 24];
 
@@ -97,7 +98,7 @@ const LoginScreen: React.FC = () => {
     setLoading(true);
     setErrors({});
     try {
-      const res = await fetch(`${BACKEND_URL}api/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: identifier, password }),

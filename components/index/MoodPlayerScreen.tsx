@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dimensions,
   Image,
@@ -9,10 +9,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSongPlayer } from './SongPlayerContext';
-import MOOD_SONGS from './moodSongs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_SIZE = SCREEN_WIDTH - 48;
@@ -34,11 +35,86 @@ interface MoodPlayerScreenProps {
 }
 
 export default function MoodPlayerScreen({ moodId, moodLabel, onBack }: MoodPlayerScreenProps) {
-  const { openSong } = useSongPlayer(); // ✅ use context instead of local state
+  const { openSong } = useSongPlayer();
 
-  const key   = moodId.toLowerCase();
-  const songs = MOOD_SONGS[key] ?? [];
-  const cover = MOOD_COVER[key] ?? 'https://picsum.photos/seed/default/400/400';
+  // ✅ New State for dynamic data
+  const [songs, setSongs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const key = moodId.toLowerCase();
+  const cover = MOOD_COVER[key] ?? { uri: 'https://picsum.photos/seed/default/400/400' };
+
+  // ✅ Fetch data on mount
+// ✅ Fetch data on mount
+  useEffect(() => {
+    let isMounted = true; // Prevents state updates if user leaves screen early
+
+    const fetchMoodData = async () => {
+      try {
+        setLoading(true);
+        setSongs([]); // Clear previous songs
+        
+        const token = await AsyncStorage.getItem("token");
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        // 1. Fetch Playlist to get songIds
+        const playlistUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}public-playlists/mood_${key}`;
+        const playlistRes = await fetch(playlistUrl, { headers });
+        
+        if (!playlistRes.ok) throw new Error('Failed to fetch playlist');
+        const playlistData = await playlistRes.json();
+
+        if (!playlistData || !playlistData.songIds) {
+          if (isMounted) setLoading(false);
+          return;
+        }
+
+        // 🛑 Stop the main loading spinner now so the UI (cover art/title) renders immediately
+        if (isMounted) setLoading(false);
+
+        // 2. Fetch metadata for each song individually and append to state as they arrive
+        playlistData.songIds.forEach(async (songId: string) => {
+          try {
+            // 👇 NOW USING THE METADATA ROUTE 👇
+            const songUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}songs/${songId}/metadata`;
+            const songRes = await fetch(songUrl, { headers });
+            
+            if (!songRes.ok) return;
+            const data = await songRes.json();
+
+            if (isMounted) {
+              setSongs(prevSongs => {
+                // Prevent duplicates in case React StrictMode fires twice
+                if (prevSongs.some(s => s.id === data.metadata.song_ID)) return prevSongs;
+                
+                return [...prevSongs, {
+                  id: data.metadata.song_ID,
+                  title: data.metadata.name,
+                  artist: data.metadata.artist,
+                  cover: data.metadata.coverURL || 'https://picsum.photos/seed/default/100/100',
+                }];
+              });
+            }
+          } catch (err) {
+            console.error(`Failed to fetch metadata for song ${songId}:`, err);
+          }
+        });
+
+      } catch (error) {
+        console.error("Error fetching mood playlist:", error);
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchMoodData();
+
+    return () => {
+      isMounted = false; // Cleanup function
+    };
+  }, [key]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -64,37 +140,40 @@ export default function MoodPlayerScreen({ moodId, moodLabel, onBack }: MoodPlay
         showsVerticalScrollIndicator={false}
       >
         <Image source={cover} style={styles.coverArt} resizeMode="cover" />
-
         <Text style={styles.moodTitle}>{moodLabel}</Text>
 
-        {songs.map(song => (
-          <TouchableOpacity
-            key={song.id}
-            style={styles.songRow}
-            onPress={() => openSong({  // ✅ calls context openSong → triggers Modal
-              id:       song.id,
-              title:    song.title,
-              artist:   song.artist,
-              duration: song.duration ?? 240,
-              coverUri: song.cover,
-            })}
-            activeOpacity={0.7}
-          >
-            <Image source={{ uri: song.cover }} style={styles.songCover} />
-            <View style={styles.songInfo}>
-              <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
-              <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
-            </View>
-            <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+        {/* ✅ Render loading spinner or songs */}
+        {loading ? (
+          <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
+        ) : (
+          songs.map(song => (
+            <TouchableOpacity
+              key={song.id}
+              style={styles.songRow}
+              onPress={() => openSong({
+                id:       song.id,
+                title:    song.title,
+                artist:   song.artist,
+                duration: 240, // Update if you add duration to your DB schema
+                coverUri: song.cover,
+                // streamUrl: song.streamUrl // Uncomment if your audio player needs the actual playable URL!
+              })}
+              activeOpacity={0.7}
+            >
+              <Image source={{ uri: song.cover }} style={styles.songCover} />
+              <View style={styles.songInfo}>
+                <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
+                <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
+              </View>
+              <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        ))}
+          ))
+        )}
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: 70 }} />
       </ScrollView>
-
-      <View style={{ height: 30 }} />
     </SafeAreaView>
   );
 }

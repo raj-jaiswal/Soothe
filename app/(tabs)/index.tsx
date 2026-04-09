@@ -68,16 +68,15 @@ export default function HomeScreen() {
       }
 
       try {
-        const res = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_URL}auth/verify-token`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+const API_BASE = `${BACKEND_URL.replace(/\/$/, "")}/api`;
 
+const res = await fetch(`${API_BASE}/auth/verify-token`, {
+  method: "GET",
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
         if (!res.ok) {
           await AsyncStorage.removeItem("token");
           router.replace("/welcome");
@@ -87,9 +86,10 @@ export default function HomeScreen() {
         const data = await res.json();
         setUsername(data.user.username);
         setGreeting(getGreeting());
-      } catch {
-        router.replace("/welcome");
-      }
+      } catch (err) {
+  console.log("Auth check failed:", err);
+  // DO NOT redirect here
+}
     };
 
     checkAuth();

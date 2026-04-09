@@ -18,6 +18,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+const API_BASE = `${BACKEND_URL.replace(/\/$/, "")}/api`;
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ALBUM_SIZE = SCREEN_WIDTH * 0.52;
 const RING_PADDING = 22;
@@ -136,7 +139,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
         setIsLoading(true);
         const token = await AsyncStorage.getItem("token");
         
-        const streamRes = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}songs/${song.id}/stream`, {
+        const streamRes = await fetch(`${API_BASE}/songs/${song.id}/stream`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -149,7 +152,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
 
         const { sound: newSound } = await Audio.Sound.createAsync(
           { uri: streamData.streamUrl },
-          { shouldPlay: true, isMeteringEnabled: true, progressUpdateIntervalMillis: 100 },
+          { shouldPlay: true, progressUpdateIntervalMillis: 100 },
           (status: AVPlaybackStatus) => {
             if (status.isLoaded && isMounted) { // 3. Only update state if mounted
               if (isLoading) setIsLoading(false);
@@ -223,7 +226,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
         <TouchableOpacity style={styles.iconBtn}><Ionicons name="ellipsis-horizontal" size={22} color="#fff" /></TouchableOpacity>
       </View>
 
-      <View style={[styles.albumArea, { width: SIZE, height: SIZE, paddingBottom: 10, transformY: 10}]} {...panResponder.panHandlers}>
+      <View style={[styles.albumArea, { width: SIZE, height: SIZE, paddingBottom: 10, transform: [{ translateY: 10 }]}]} {...panResponder.panHandlers}>
         <Svg width={SIZE} height={SIZE} style={{ position: 'absolute' }}>
           <Path d={trackPath} stroke="#444" strokeWidth={3} fill="none" strokeLinecap="round" />
           <Path d={progressPath} stroke="#FFFFFF" strokeWidth={3} fill="none" strokeLinecap="round" />

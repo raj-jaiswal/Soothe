@@ -1,14 +1,22 @@
-import { useState } from "react";
-import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Image, TextInput, Modal, Pressable, Alert,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSongPlayer } from '@/components/index/SongPlayerContext';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  Modal, Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Song = { id: string; title: string; artist: string; cover: string; size?: string };
+type Song = { id: string; title: string; artist: string; cover: string; size?: string; };
 type Playlist = { id: string; name: string; songs: Song[]; cover: string; mood: string; pinned?: boolean };
 type Section = "favourites" | "downloads" | null;
 type SortMode = "default" | "az";
@@ -87,15 +95,21 @@ const SectionHeader = ({ icon, label, count, expanded, onToggle, accent }: { ico
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+const API_BASE = `${BACKEND_URL.replace(/\/$/, "")}/api`;
 
 export default function PlaylistScreen() {
   // ✅ Correct — inside the component
   const { openSong } = useSongPlayer();
+    const getToken = async () => {
+    return await AsyncStorage.getItem("token");
+  };
 
   const [expanded, setExpanded] = useState<Section>(null);
   const [favourites, setFavourites] = useState<Song[]>(INITIAL_FAVOURITES);
   const [downloads, setDownloads] = useState<Song[]>(INITIAL_DOWNLOADS);
   const [playlists, setPlaylists] = useState<Playlist[]>(INITIAL_PLAYLISTS);
+  const [allSongsFromBackend, setAllSongsFromBackend] = useState<Song[]>([]);
 
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -117,15 +131,106 @@ export default function PlaylistScreen() {
   const [selectedMood, setSelectedMood] = useState("Calm");
   const [renameText, setRenameText] = useState("");
 
+    useEffect(() => {
+  const init = async () => {
+    const songs = await fetchAllSongs();
+    await fetchPlaylists(songs);
+  };
+
+  init();
+}, []);
+
+const fetchAllSongs = async () => {
+  try {
+    const token = await getToken();
+    if (!token) {
+      console.log("No token found for songs fetch");
+      return [];
+    }
+
+    const res = await fetch(`${API_BASE}/songs`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const text = await res.text();
+    console.log("songs status:", res.status);
+    console.log("songs body:", text);
+
+    if (!res.ok) return [];
+
+    const data = text ? JSON.parse(text) : [];
+
+    const formattedSongs: Song[] = (data || []).map((s: any) => ({
+      id: String(s.song_ID || s.songId || s.id),
+      title: s.title || s.name || "Untitled",
+      artist: s.artist || s.artistName || "Unknown Artist",
+      cover: s.cover || s.image || s.coverArt || "https://via.placeholder.com/100",
+      audioUrl: s.songURL || s.audioUrl || s.url || "",
+    }));
+    console.log("formatted song ids:", formattedSongs.map((s) => s.id));
+    setAllSongsFromBackend(formattedSongs);
+    return formattedSongs;
+  } catch (err) {
+    console.log("Error fetching songs:", err);
+    return [];
+  }
+};
+
+  const fetchPlaylists = async (songPool: Song[] = allSongsFromBackend) => {
+    try {
+      const token = await getToken();
+
+      const res = await fetch(`${BACKEND_URL}api/personal-playlists/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      console.log("playlist raw data:", JSON.stringify(data, null, 2));
+console.log("songPool ids:", songPool.map((s) => s.id));
+
+      if (!res.ok) {
+        console.log("Fetch failed:", data);
+        return;
+      }
+
+      const formatted = data.map((p: any) => {
+  const hydratedSongs = (p.songs || [])
+    .map((songId: string) =>
+      songPool.find((s) => String(s.id) === String(songId))
+    )
+    .filter(Boolean);
+
+  return {
+    id: p.playlistId,
+    name: p.nameOfPlaylist,
+    songs: hydratedSongs,
+    cover: hydratedSongs[0]?.cover || "https://via.placeholder.com/100",
+    mood: p.moods?.[0] || "Custom",
+    pinned: false,
+  };
+});
+      setPlaylists(formatted);
+    } catch (err) {
+      console.log("Error fetching playlists:", err);
+    }
+  };
+
   // ── Helper to open player ──────────────────────────────────────────────────
   const handleSongPress = (song: Song) => {
     openSong({
-      id:       song.id,
-      title:    song.title,
-      artist:   song.artist,
-      duration: 240,
-      coverUri: song.cover,
-    });
+  id: song.id,
+  title: song.title,
+  artist: song.artist,
+  duration: 240,
+  coverUri: song.cover,
+});
   };
 
   const toggle = (section: Section) => setExpanded((prev) => (prev === section ? null : section));
@@ -171,11 +276,61 @@ export default function PlaylistScreen() {
   const togglePin = (id: string) => setPlaylists((prev) => prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned } : p)));
 
   const deletePlaylist = (id: string) => {
-    Alert.alert("Delete Playlist", "This cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => { setPlaylists((prev) => prev.filter((p) => p.id !== id)); if (expandedPlaylistId === id) setExpandedPlaylistId(null); } },
-    ]);
-  };
+  Alert.alert("Delete Playlist", "This cannot be undone.", [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Delete",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          const token = await getToken();
+
+          if (!token) {
+            console.log("No token found for delete");
+            Alert.alert("Error", "User not authenticated");
+            return;
+          }
+
+          const res = await fetch(
+            `${BACKEND_URL}api/personal-playlists/${id}`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const text = await res.text();
+          console.log("delete playlist status:", res.status);
+          console.log("delete playlist body:", text);
+
+          let data: any = {};
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch {}
+
+          if (!res.ok) {
+            Alert.alert("Failed", data.error || "Could not delete playlist.");
+            return;
+          }
+
+          // ✅ Update UI after successful delete
+          setPlaylists((prev) => prev.filter((p) => p.id !== id));
+
+          if (expandedPlaylistId === id) {
+            setExpandedPlaylistId(null);
+          }
+
+          Alert.alert("Deleted", "Playlist deleted successfully");
+        } catch (err) {
+          console.log("Error deleting playlist:", err);
+          Alert.alert("Error", "Something went wrong while deleting.");
+        }
+      },
+    },
+  ]);
+};
 
   const renamePlaylist = () => {
     if (!renameText.trim() || !selectedPlaylist) return;
@@ -187,16 +342,70 @@ export default function PlaylistScreen() {
     setPlaylists((prev) => prev.map((p) => p.id === playlistId ? { ...p, songs: p.songs.filter((s) => s.id !== songId) } : p));
   };
 
-  const addSongToPlaylist = (playlistId: string, song: Song) => {
-    const playlist = playlists.find((p) => p.id === playlistId);
-    if (!playlist) return;
-    if (playlist.songs.find((s) => s.id === song.id)) { Alert.alert("Already Added", `"${song.title}" is already in this playlist.`); return; }
-    setPlaylists((prev) => prev.map((p) => p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p));
+  const addSongToPlaylist = async (playlistId: string, song: Song) => {
+  const playlist = playlists.find((p) => p.id === playlistId);
+  if (!playlist) return;
+
+  if (playlist.songs.find((s) => s.id === song.id)) {
+    Alert.alert("Already Added", `"${song.title}" is already in this playlist.`);
+    return;
+  }
+
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      Alert.alert("Login required", "Please log in again.");
+      return;
+    }
+
+    console.log("Adding song to playlist", {
+      playlistId,
+      songId: song.id,
+      title: song.title,
+    });
+
+    const res = await fetch(`${BACKEND_URL}api/personal-playlists/${playlistId}/songs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        songId: song.id,
+      }),
+    });
+
+    const text = await res.text();
+    console.log("add song response status:", res.status);
+    console.log("add song response body:", text);
+
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {}
+
+    if (!res.ok) {
+      Alert.alert("Failed", data.error || "Could not add song to playlist.");
+      return;
+    }
+
+    setPlaylists((prev) =>
+      prev.map((p) =>
+        p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p
+      )
+    );
+
     Alert.alert("Added!", `"${song.title}" added to "${playlist.name}".`);
     setAddSongToPlaylistVisible(false);
     setAddToPlaylistVisible(false);
-  };
 
+    // safest: re-fetch from backend so UI matches DB
+    await fetchPlaylists();
+  } catch (err) {
+    console.log("Error adding song to playlist:", err);
+    Alert.alert("Error", "Something went wrong while adding the song.");
+  }
+};
   const openPlaylistSongSheet = (playlist: Playlist, song: Song) => {
     setSelectedSong(song);
     setSelectedPlaylist(playlist);
@@ -226,10 +435,48 @@ export default function PlaylistScreen() {
     setSheetVisible(true);
   };
 
-  const handleCreate = () => {
+    const handleCreate = async () => {
     if (!newPlaylistName.trim()) return;
-    setPlaylists((prev) => [...prev, { id: String(Date.now()), name: newPlaylistName.trim(), songs: [], cover: `https://picsum.photos/seed/${Date.now()}/60/60`, mood: selectedMood }]);
-    setNewPlaylistName(""); setSelectedMood("Calm"); setCreateVisible(false);
+
+    try {
+      const token = await getToken();
+
+      const res = await fetch(`${BACKEND_URL}api/personal-playlists/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nameOfPlaylist: newPlaylistName.trim(),
+          moods: [selectedMood],
+          songs: [],
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log("Create failed:", data);
+        return;
+      }
+
+      const newPlaylist = {
+        id: data.playlistId,
+        name: data.nameOfPlaylist,
+        songs: data.songs || [],
+        cover: "https://picsum.photos/60/60",
+        mood: (data.moods && data.moods[0]) || "Calm",
+        pinned: false,
+      };
+
+      setPlaylists((prev) => [...prev, newPlaylist]);
+      setNewPlaylistName("");
+      setSelectedMood("Calm");
+      setCreateVisible(false);
+    } catch (err) {
+      console.log("Error creating playlist:", err);
+    }
   };
 
   // ── Derived lists ──────────────────────────────────────────────────────────
@@ -245,7 +492,11 @@ export default function PlaylistScreen() {
   })();
 
   const filteredFavourites = searchQuery ? favourites.filter((s) => s.title.toLowerCase().includes(searchQuery.toLowerCase())) : favourites;
-  const songsNotInPlaylist = selectedPlaylist ? ALL_SONGS.filter((s) => !selectedPlaylist.songs.find((ps) => ps.id === s.id)) : [];
+  const songsNotInPlaylist = selectedPlaylist
+  ? allSongsFromBackend.filter(
+      (s) => !selectedPlaylist.songs.find((ps) => String(ps.id) === String(s.id))
+    )
+  : [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -356,8 +607,8 @@ export default function PlaylistScreen() {
                   <Ionicons name="add-circle-outline" size={16} color="#7C3AED" />
                   <Text style={styles.addSongBtnText}>Add Songs</Text>
                 </TouchableOpacity>
-                {playlist.songs.length === 0 ? <Text style={styles.emptyText}>No songs yet — add some!</Text> : playlist.songs.map((song) => (
-                  <TouchableOpacity key={song.id} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
+                {playlist.songs.length === 0 ? <Text style={styles.emptyText}>No songs yet — add some!</Text> : playlist.songs.map((song, index) => (
+                  <TouchableOpacity key={`${playlist.id}-${song.id}-${index}`} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
                     <Image source={{ uri: song.cover }} style={styles.songCover} />
                     <View style={styles.songInfo}>
                       <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>

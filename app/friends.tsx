@@ -1,18 +1,19 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { jwtDecode } from "jwt-decode"; // <-- IMPORT ADDED
+import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Image, // <-- IMPORT ADDED
   Pressable,
   SafeAreaView,
   SectionList,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity, // <-- IMPORT ADDED
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,6 +25,7 @@ type Person = {
   name: string;
   handle: string;
   note?: string;
+  profileImage?: string; // <-- ADDED TO TYPE
 };
 
 type FriendsSection = {
@@ -60,7 +62,7 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<Person[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [myUsername, setMyUsername] = useState(""); // <-- NEW STATE FOR MY USERNAME
+  const [myUsername, setMyUsername] = useState("");
 
   const [processingTask, setProcessingTask] = useState<ProcessingTask>(null);
 
@@ -155,7 +157,11 @@ export default function FriendsScreen() {
     }
   };
 
-  const handleOpenChat = (friendId: string, friendName: string) => {
+  const handleOpenChat = (
+    friendId: string,
+    friendName: string,
+    profileImage: string,
+  ) => {
     if (!myUsername) return;
 
     // Generate deterministic Room ID exactly like the backend does
@@ -167,6 +173,7 @@ export default function FriendsScreen() {
         id: chatId,
         name: friendName,
         recipientUsername: friendId,
+        profileImage: profileImage,
       },
     });
   };
@@ -272,12 +279,26 @@ export default function FriendsScreen() {
         activeOpacity={section.variant === "friend" ? 0.7 : 1}
         onPress={() => {
           if (section.variant === "friend") {
-            handleOpenChat(item.id, item.name || item.handle);
+            handleOpenChat(
+              item.id,
+              item.name || item.handle,
+              item.profileImage,
+            );
           }
         }}
       >
+        {/* UPDATED AVATAR BLOCK */}
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+          {item.profileImage ? (
+            <Image
+              source={{ uri: item.profileImage }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={styles.avatarText}>
+              {getInitials(item.name || item.handle)}
+            </Text>
+          )}
         </View>
 
         <View style={styles.textBlock}>
@@ -477,6 +498,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden", // <-- ADDED: ensures the image respects the border radius
+  },
+  avatarImage: {
+    width: "100%", // <-- ADDED
+    height: "100%", // <-- ADDED
+    resizeMode: "cover", // <-- ADDED
   },
   avatarText: {
     color: "white",

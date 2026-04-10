@@ -202,7 +202,7 @@ const LoginScreen: React.FC = () => {
 
           {/* Identifier field */}
           <View style={styles.fieldWrapper}>
-            <Text style={styles.fieldLabel}>Username or Email</Text>
+            <Text style={styles.fieldLabel}>Username</Text>
             <View
               style={[
                 styles.inputRow,

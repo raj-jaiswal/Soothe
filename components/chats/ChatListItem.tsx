@@ -14,11 +14,22 @@ export default function ChatListItem({ chat }: { chat: any }) {
             id: chat.id, // The Room ID
             name: chat.name,
             recipientUsername: chat.recipientUsername,
+            profileImage: chat.profileImage,
           },
         })
       }
     >
-      <Image source={{ uri: chat.avatar }} style={styles.avatar} />
+      {/* Updated Avatar Section with Fallback */}
+      <View style={styles.avatarInner}>
+        {chat.profileImage ? (
+          <Image
+            source={{ uri: chat.profileImage }}
+            style={styles.avatarInnerImage}
+          />
+        ) : (
+          <Text style={styles.avatarEmoji}>🎩</Text>
+        )}
+      </View>
 
       <View style={styles.textContainer}>
         <Text style={styles.name}>{chat.name}</Text>
@@ -39,7 +50,6 @@ export default function ChatListItem({ chat }: { chat: any }) {
 
 const styles = StyleSheet.create({
   container: { flexDirection: "row", alignItems: "center", marginVertical: 14 },
-  avatar: { width: 50, height: 50, borderRadius: 30, marginRight: 14 },
   textContainer: { flex: 1 },
   name: { color: "white", fontSize: 16, fontWeight: "600" },
   message: { color: "#aaa", fontSize: 13, marginTop: 2 },
@@ -52,4 +62,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   badgeText: { fontSize: 12, fontWeight: "600" },
+
+  // New Avatar Styles adapted from profile.tsx
+  avatarInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25, // Half of width/height to make it a perfect circle
+    marginRight: 14,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#333", // Fallback background color
+  },
+  avatarInnerImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  avatarEmoji: {
+    fontSize: 24, // Scaled down for the 50x50 container
+  },
 });

@@ -7,7 +7,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator, // <-- IMPORT ADDED
   FlatList,
+  Image, // <-- IMPORT ADDED
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -28,8 +30,24 @@ type Message = {
   timeStamp: number;
 };
 
+// Helper for the avatar fallback
+function getInitials(name?: string) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export default function MessagePage() {
-  const { id: chatId, name, recipientUsername } = useLocalSearchParams();
+  const {
+    id: chatId,
+    name,
+    recipientUsername,
+    profileImage, // <-- Added param extraction
+  } = useLocalSearchParams();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
 
@@ -37,6 +55,8 @@ export default function MessagePage() {
   const [inputText, setInputText] = useState("");
   const [myUsername, setMyUsername] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true); // <-- Added loading state
 
   // Derive Shared Secret securely based on alphabetically sorting usernames
   const sharedKey = [myUsername, String(recipientUsername)].sort().join("_");
@@ -81,6 +101,8 @@ export default function MessagePage() {
         }
       } catch (error) {
         console.error("Failed to fetch messages", error);
+      } finally {
+        if (isActive) setIsLoading(false); // Stop loading spinner
       }
 
       // If the user backed out while fetching, don't create a socket!
@@ -167,25 +189,62 @@ export default function MessagePage() {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
+        {/* === NEW HEADER SECTION === */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ paddingRight: 10 }}
+          >
             <Ionicons name="chevron-back" size={28} color="white" />
           </TouchableOpacity>
+
+          <View style={styles.headerProfile}>
+            {profileImage && profileImage !== "undefined" ? (
+              <Image
+                source={{ uri: profileImage as string }}
+                style={styles.headerAvatar}
+              />
+            ) : (
+              <View style={styles.headerAvatarFallback}>
+                <Text style={styles.headerAvatarText}>
+                  {getInitials(name as string)}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.title}>{name}</Text>
+          </View>
         </View>
 
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          style={styles.list}
-          contentContainerStyle={{ paddingVertical: 10 }}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        />
+        {/* === MAIN CONTENT (SPINNER OR LIST) === */}
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#7B2FF7" />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            onLayout={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            /* === EMPTY STATE ADDED === */
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  Start a conversation with {name}
+                </Text>
+              </View>
+            }
+          />
+        )}
 
         <View style={styles.chatBox}>
           <TextInput
@@ -208,15 +267,51 @@ export default function MessagePage() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#1f1f1f" },
   container: { flex: 1, paddingHorizontal: 20 },
+
+  // === UPDATED HEADER STYLES ===
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginTop: 10,
     marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
   },
-  title: { color: "white", fontSize: 20, fontWeight: "600" },
+  headerProfile: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    backgroundColor: "#333",
+  },
+  headerAvatarFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    backgroundColor: "#333",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerAvatarText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  title: { color: "white", fontSize: 18, fontWeight: "600" },
+
+  // List & Message Styles
   list: { flex: 1 },
+  listContent: {
+    paddingVertical: 10,
+    flexGrow: 1, // Ensures empty state centers correctly
+  },
   messageBubble: {
     maxWidth: "70%",
     padding: 12,
@@ -225,7 +320,9 @@ const styles = StyleSheet.create({
   },
   myMessage: { alignSelf: "flex-end", backgroundColor: "#7B2FF7" },
   theirMessage: { alignSelf: "flex-start", backgroundColor: "#333" },
-  messageText: { color: "white" },
+  messageText: { color: "white", fontSize: 15 },
+
+  // Input Styles
   chatBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -235,11 +332,29 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginVertical: 10,
   },
-  input: { flex: 1, color: "white", paddingVertical: 10 },
+  input: { flex: 1, color: "white", paddingVertical: 10, fontSize: 15 },
   sendButton: {
     backgroundColor: "#7B2FF7",
     padding: 10,
     borderRadius: 20,
     marginLeft: 10,
+  },
+
+  // === NEW EMPTY & LOADING STATE STYLES ===
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: "50%",
+  },
+  emptyText: {
+    color: "#888",
+    fontSize: 15,
+    textAlign: "center",
   },
 });

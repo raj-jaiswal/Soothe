@@ -69,14 +69,14 @@ export default function HomeScreen() {
 
       try {
         const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
-const API_BASE = `${BACKEND_URL.replace(/\/$/, "")}/api`;
+        const API_BASE = `${BACKEND_URL}`;
 
-const res = await fetch(`${API_BASE}/auth/verify-token`, {
-  method: "GET",
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
-});
+        const res = await fetch(`${API_BASE}auth/verify-token`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) {
           await AsyncStorage.removeItem("token");
           router.replace("/welcome");
@@ -87,9 +87,9 @@ const res = await fetch(`${API_BASE}/auth/verify-token`, {
         setUsername(data.user.username);
         setGreeting(getGreeting());
       } catch (err) {
-  console.log("Auth check failed:", err);
-  // DO NOT redirect here
-}
+        console.log("Auth check failed:", err);
+        // DO NOT redirect here
+      }
     };
 
     checkAuth();
@@ -103,7 +103,7 @@ const res = await fetch(`${API_BASE}/auth/verify-token`, {
         setSearchText("");
         dropdownAnim.setValue(0);
       };
-    }, [])
+    }, []),
   );
 
   const pillTop = WHEEL_RADIUS - CARD_HEIGHT / 2 + PILL_VERTICAL_OFFSET;
@@ -219,12 +219,9 @@ const res = await fetch(`${API_BASE}/auth/verify-token`, {
           <>
             <View>
               <Text style={styles.greeting}>
-                {greeting}{" "}
-                <Text style={styles.greetingBold}>{username}</Text>
+                {greeting} <Text style={styles.greetingBold}>{username}</Text>
               </Text>
-              <Text style={styles.subtitle}>
-                How's your mood today?
-              </Text>
+              <Text style={styles.subtitle}>How's your mood today?</Text>
             </View>
 
             <TouchableOpacity onPress={openSearch}>
@@ -240,9 +237,7 @@ const res = await fetch(`${API_BASE}/auth/verify-token`, {
           activeIndex={activeIndex}
           onIndexChange={setActiveIndex}
         />
-        <View
-          style={[styles.pillOverlay, { top: pillTop, left: pillLeft }]}
-        >
+        <View style={[styles.pillOverlay, { top: pillTop, left: pillLeft }]}>
           <ActiveMoodCard mood={activeMood} onPlay={openPlayer} />
         </View>
       </View>

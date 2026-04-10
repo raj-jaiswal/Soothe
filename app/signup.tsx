@@ -22,7 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
-const API_BASE = `${BACKEND_URL}api`;
+const API_BASE = `${BACKEND_URL}`;
 
 interface FieldConfig {
   key: string;
@@ -101,7 +101,7 @@ const OtpModal: React.FC<OtpModalProps> = ({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+      const res = await fetch(`${API_BASE}auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, otp }),
@@ -275,7 +275,7 @@ const SignUpScreen: React.FC = () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      const url = `${API_BASE}/auth/signup`;
+      const url = `${API_BASE}auth/signup`;
       console.log("Signup URL:", url);
 
       const res = await fetch(url, {

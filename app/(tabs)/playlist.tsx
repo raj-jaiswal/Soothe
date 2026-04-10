@@ -1,11 +1,12 @@
-import { useSongPlayer } from '@/components/index/SongPlayerContext';
+import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
-  Modal, Pressable,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,62 +17,193 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Song = { id: string; title: string; artist: string; cover: string; size?: string; };
-type Playlist = { id: string; name: string; songs: Song[]; cover: string; mood: string; pinned?: boolean };
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  cover: string;
+  size?: string;
+};
+type Playlist = {
+  id: string;
+  name: string;
+  songs: Song[];
+  cover: string;
+  mood: string;
+  pinned?: boolean;
+};
 type Section = "favourites" | "downloads" | null;
 type SortMode = "default" | "az";
-type SheetAction = { icon: string; label: string; onPress: () => void; danger?: boolean };
+type SheetAction = {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+};
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const ALL_SONGS: Song[] = [
-  { id: "1", title: "Kabira", artist: "Pritam, Tochi Raina", cover: "https://picsum.photos/seed/kabira/60/60" },
-  { id: "2", title: "Tum Hi Ho", artist: "Arijit Singh", cover: "https://picsum.photos/seed/tumhiho/60/60" },
-  { id: "3", title: "Oh Saathi", artist: "Atif Aslam, Arko", cover: "https://picsum.photos/seed/osaathi/60/60" },
-  { id: "4", title: "Ek Ladki Ko Dekha", artist: "Darshan Raval", cover: "https://picsum.photos/seed/ekladki/60/60" },
-  { id: "5", title: "Two Oruguitas", artist: "Sebastián Yatra", cover: "https://picsum.photos/seed/orugu/60/60" },
-  { id: "6", title: "Saath Nibhana Saathiya", artist: "Falguni Pathak", cover: "https://picsum.photos/seed/saath/60/60" },
-  { id: "7", title: "Channa Mereya", artist: "Arijit Singh", cover: "https://picsum.photos/seed/channa/60/60" },
+  {
+    id: "1",
+    title: "Kabira",
+    artist: "Pritam, Tochi Raina",
+    cover: "https://picsum.photos/seed/kabira/60/60",
+  },
+  {
+    id: "2",
+    title: "Tum Hi Ho",
+    artist: "Arijit Singh",
+    cover: "https://picsum.photos/seed/tumhiho/60/60",
+  },
+  {
+    id: "3",
+    title: "Oh Saathi",
+    artist: "Atif Aslam, Arko",
+    cover: "https://picsum.photos/seed/osaathi/60/60",
+  },
+  {
+    id: "4",
+    title: "Ek Ladki Ko Dekha",
+    artist: "Darshan Raval",
+    cover: "https://picsum.photos/seed/ekladki/60/60",
+  },
+  {
+    id: "5",
+    title: "Two Oruguitas",
+    artist: "Sebastián Yatra",
+    cover: "https://picsum.photos/seed/orugu/60/60",
+  },
+  {
+    id: "6",
+    title: "Saath Nibhana Saathiya",
+    artist: "Falguni Pathak",
+    cover: "https://picsum.photos/seed/saath/60/60",
+  },
+  {
+    id: "7",
+    title: "Channa Mereya",
+    artist: "Arijit Singh",
+    cover: "https://picsum.photos/seed/channa/60/60",
+  },
 ];
 
-const INITIAL_FAVOURITES: Song[] = [ALL_SONGS[0], ALL_SONGS[1], ALL_SONGS[2], ALL_SONGS[3]];
+const INITIAL_FAVOURITES: Song[] = [
+  ALL_SONGS[0],
+  ALL_SONGS[1],
+  ALL_SONGS[2],
+  ALL_SONGS[3],
+];
 const INITIAL_DOWNLOADS: Song[] = [
   { ...ALL_SONGS[4], size: "4.2 MB" },
   { ...ALL_SONGS[5], size: "3.8 MB" },
   { ...ALL_SONGS[6], size: "5.1 MB" },
 ];
 const INITIAL_PLAYLISTS: Playlist[] = [
-  { id: "1", name: "Late Night Drives", mood: "Calm", pinned: true, cover: "https://picsum.photos/seed/latenight/60/60", songs: [ALL_SONGS[0], ALL_SONGS[2]] },
-  { id: "2", name: "Morning Energy", mood: "Upbeat", cover: "https://picsum.photos/seed/morning/60/60", songs: [ALL_SONGS[1], ALL_SONGS[3]] },
-  { id: "3", name: "Heartbreak Anthems", mood: "Grief", cover: "https://picsum.photos/seed/heart/60/60", songs: [ALL_SONGS[4], ALL_SONGS[5], ALL_SONGS[6]] },
+  {
+    id: "1",
+    name: "Late Night Drives",
+    mood: "Calm",
+    pinned: true,
+    cover: "https://picsum.photos/seed/latenight/60/60",
+    songs: [ALL_SONGS[0], ALL_SONGS[2]],
+  },
+  {
+    id: "2",
+    name: "Morning Energy",
+    mood: "Upbeat",
+    cover: "https://picsum.photos/seed/morning/60/60",
+    songs: [ALL_SONGS[1], ALL_SONGS[3]],
+  },
+  {
+    id: "3",
+    name: "Heartbreak Anthems",
+    mood: "Grief",
+    cover: "https://picsum.photos/seed/heart/60/60",
+    songs: [ALL_SONGS[4], ALL_SONGS[5], ALL_SONGS[6]],
+  },
 ];
-const MOODS = ["Calm", "Love", "Upbeat", "Grief", "Euphoric", "Angry", "Anxious"];
+const MOODS = [
+  "Calm",
+  "Love",
+  "Upbeat",
+  "Grief",
+  "Euphoric",
+  "Angry",
+  "Anxious",
+];
 
 // ─── Context Bottom Sheet ─────────────────────────────────────────────────────
 
-const ContextSheet = ({ visible, song, actions, onClose }: { visible: boolean; song: Song | null; actions: SheetAction[]; onClose: () => void }) => (
-  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+const ContextSheet = ({
+  visible,
+  song,
+  actions,
+  onClose,
+}: {
+  visible: boolean;
+  song: Song | null;
+  actions: SheetAction[];
+  onClose: () => void;
+}) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="slide"
+    onRequestClose={onClose}
+  >
     <Pressable style={styles.modalOverlay} onPress={onClose}>
       <Pressable style={styles.modalSheet} onPress={() => {}}>
         <View style={styles.modalHandle} />
         {song && (
           <>
             <View style={styles.sheetSongPreview}>
-              <Image source={{ uri: song.cover }} style={styles.sheetSongCover} />
+              <Image
+                source={{ uri: song.cover }}
+                style={styles.sheetSongCover}
+              />
               <View style={{ flex: 1 }}>
-                <Text style={styles.sheetSongTitle} numberOfLines={1}>{song.title}</Text>
-                <Text style={styles.sheetSongArtist} numberOfLines={1}>{song.artist}</Text>
+                <Text style={styles.sheetSongTitle} numberOfLines={1}>
+                  {song.title}
+                </Text>
+                <Text style={styles.sheetSongArtist} numberOfLines={1}>
+                  {song.artist}
+                </Text>
               </View>
             </View>
             <View style={styles.sheetDivider} />
           </>
         )}
         {actions.map((action, i) => (
-          <TouchableOpacity key={i} style={styles.sheetAction} onPress={() => { action.onPress(); onClose(); }} activeOpacity={0.7}>
-            <View style={[styles.sheetActionIcon, action.danger && styles.sheetActionIconDanger]}>
-              <Ionicons name={action.icon as any} size={18} color={action.danger ? "#FF4D4D" : "#aaa"} />
+          <TouchableOpacity
+            key={i}
+            style={styles.sheetAction}
+            onPress={() => {
+              action.onPress();
+              onClose();
+            }}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.sheetActionIcon,
+                action.danger && styles.sheetActionIconDanger,
+              ]}
+            >
+              <Ionicons
+                name={action.icon as any}
+                size={18}
+                color={action.danger ? "#FF4D4D" : "#aaa"}
+              />
             </View>
-            <Text style={[styles.sheetActionLabel, action.danger && styles.sheetActionLabelDanger]}>{action.label}</Text>
+            <Text
+              style={[
+                styles.sheetActionLabel,
+                action.danger && styles.sheetActionLabelDanger,
+              ]}
+            >
+              {action.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </Pressable>
@@ -81,27 +213,53 @@ const ContextSheet = ({ visible, song, actions, onClose }: { visible: boolean; s
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
-const SectionHeader = ({ icon, label, count, expanded, onToggle, accent }: { icon: React.ReactNode; label: string; count: number; expanded: boolean; onToggle: () => void; accent?: boolean }) => (
-  <TouchableOpacity style={[styles.sectionHeader, accent && styles.sectionHeaderAccent]} onPress={onToggle} activeOpacity={0.75}>
+const SectionHeader = ({
+  icon,
+  label,
+  count,
+  expanded,
+  onToggle,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  accent?: boolean;
+}) => (
+  <TouchableOpacity
+    style={[styles.sectionHeader, accent && styles.sectionHeaderAccent]}
+    onPress={onToggle}
+    activeOpacity={0.75}
+  >
     <View style={styles.sectionHeaderLeft}>
-      <View style={[styles.sectionIconWrap, accent && styles.sectionIconWrapAccent]}>{icon}</View>
+      <View
+        style={[styles.sectionIconWrap, accent && styles.sectionIconWrapAccent]}
+      >
+        {icon}
+      </View>
       <View>
         <Text style={styles.sectionLabel}>{label}</Text>
         <Text style={styles.sectionCount}>{count} songs</Text>
       </View>
     </View>
-    <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color="#aaa" />
+    <Ionicons
+      name={expanded ? "chevron-up" : "chevron-down"}
+      size={18}
+      color="#aaa"
+    />
   </TouchableOpacity>
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
-const API_BASE = `${BACKEND_URL.replace(/\/$/, "")}/api`;
+const API_BASE = `${BACKEND_URL}`;
 
 export default function PlaylistScreen() {
   // ✅ Correct — inside the component
   const { openSong } = useSongPlayer();
-    const getToken = async () => {
+  const getToken = async () => {
     return await AsyncStorage.getItem("token");
   };
 
@@ -114,76 +272,85 @@ export default function PlaylistScreen() {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("default");
-  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
+  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(
+    null,
+  );
 
   const [createVisible, setCreateVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [sortVisible, setSortVisible] = useState(false);
   const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
-  const [addSongToPlaylistVisible, setAddSongToPlaylistVisible] = useState(false);
+  const [addSongToPlaylistVisible, setAddSongToPlaylistVisible] =
+    useState(false);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [sheetActions, setSheetActions] = useState<SheetAction[]>([]);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(
+    null,
+  );
 
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [selectedMood, setSelectedMood] = useState("Calm");
   const [renameText, setRenameText] = useState("");
 
-    useEffect(() => {
-  const init = async () => {
-    const songs = await fetchAllSongs();
-    await fetchPlaylists(songs);
-  };
+  useEffect(() => {
+    const init = async () => {
+      const songs = await fetchAllSongs();
+      await fetchPlaylists(songs);
+    };
 
-  init();
-}, []);
+    init();
+  }, []);
 
-const fetchAllSongs = async () => {
-  try {
-    const token = await getToken();
-    if (!token) {
-      console.log("No token found for songs fetch");
+  const fetchAllSongs = async () => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        console.log("No token found for songs fetch");
+        return [];
+      }
+
+      const res = await fetch(`${API_BASE}songs`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await res.text();
+      console.log("songs status:", res.status);
+      console.log("songs body:", text);
+
+      if (!res.ok) return [];
+
+      const data = text ? JSON.parse(text) : [];
+
+      const formattedSongs: Song[] = (data || []).map((s: any) => ({
+        id: String(s.song_ID || s.songId || s.id),
+        title: s.title || s.name || "Untitled",
+        artist: s.artist || s.artistName || "Unknown Artist",
+        cover:
+          s.cover || s.image || s.coverArt || "https://via.placeholder.com/100",
+        audioUrl: s.songURL || s.audioUrl || s.url || "",
+      }));
+      console.log(
+        "formatted song ids:",
+        formattedSongs.map((s) => s.id),
+      );
+      setAllSongsFromBackend(formattedSongs);
+      return formattedSongs;
+    } catch (err) {
+      console.log("Error fetching songs:", err);
       return [];
     }
-
-    const res = await fetch(`${API_BASE}/songs`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const text = await res.text();
-    console.log("songs status:", res.status);
-    console.log("songs body:", text);
-
-    if (!res.ok) return [];
-
-    const data = text ? JSON.parse(text) : [];
-
-    const formattedSongs: Song[] = (data || []).map((s: any) => ({
-      id: String(s.song_ID || s.songId || s.id),
-      title: s.title || s.name || "Untitled",
-      artist: s.artist || s.artistName || "Unknown Artist",
-      cover: s.cover || s.image || s.coverArt || "https://via.placeholder.com/100",
-      audioUrl: s.songURL || s.audioUrl || s.url || "",
-    }));
-    console.log("formatted song ids:", formattedSongs.map((s) => s.id));
-    setAllSongsFromBackend(formattedSongs);
-    return formattedSongs;
-  } catch (err) {
-    console.log("Error fetching songs:", err);
-    return [];
-  }
-};
+  };
 
   const fetchPlaylists = async (songPool: Song[] = allSongsFromBackend) => {
     try {
       const token = await getToken();
 
-      const res = await fetch(`${BACKEND_URL}api/personal-playlists/`, {
+      const res = await fetch(`${BACKEND_URL}personal-playlists/`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -192,8 +359,6 @@ const fetchAllSongs = async () => {
       });
 
       const data = await res.json();
-      console.log("playlist raw data:", JSON.stringify(data, null, 2));
-console.log("songPool ids:", songPool.map((s) => s.id));
 
       if (!res.ok) {
         console.log("Fetch failed:", data);
@@ -201,21 +366,21 @@ console.log("songPool ids:", songPool.map((s) => s.id));
       }
 
       const formatted = data.map((p: any) => {
-  const hydratedSongs = (p.songs || [])
-    .map((songId: string) =>
-      songPool.find((s) => String(s.id) === String(songId))
-    )
-    .filter(Boolean);
+        const hydratedSongs = (p.songs || [])
+          .map((songId: string) =>
+            songPool.find((s) => String(s.id) === String(songId)),
+          )
+          .filter(Boolean);
 
-  return {
-    id: p.playlistId,
-    name: p.nameOfPlaylist,
-    songs: hydratedSongs,
-    cover: hydratedSongs[0]?.cover || "https://via.placeholder.com/100",
-    mood: p.moods?.[0] || "Custom",
-    pinned: false,
-  };
-});
+        return {
+          id: p.playlistId,
+          name: p.nameOfPlaylist,
+          songs: hydratedSongs,
+          cover: hydratedSongs[0]?.cover || "https://via.placeholder.com/100",
+          mood: p.moods?.[0] || "Custom",
+          pinned: false,
+        };
+      });
       setPlaylists(formatted);
     } catch (err) {
       console.log("Error fetching playlists:", err);
@@ -225,40 +390,72 @@ console.log("songPool ids:", songPool.map((s) => s.id));
   // ── Helper to open player ──────────────────────────────────────────────────
   const handleSongPress = (song: Song) => {
     openSong({
-  id: song.id,
-  title: song.title,
-  artist: song.artist,
-  duration: 240,
-  coverUri: song.cover,
-});
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      duration: 240,
+      coverUri: song.cover,
+    });
   };
 
-  const toggle = (section: Section) => setExpanded((prev) => (prev === section ? null : section));
-  const togglePlaylistExpand = (id: string) => setExpandedPlaylistId((prev) => (prev === id ? null : id));
+  const toggle = (section: Section) =>
+    setExpanded((prev) => (prev === section ? null : section));
+  const togglePlaylistExpand = (id: string) =>
+    setExpandedPlaylistId((prev) => (prev === id ? null : id));
 
   // ── Favourites ──────────────────────────────────────────────────────────────
-  const unfavourite = (id: string) => setFavourites((prev) => prev.filter((s) => s.id !== id));
+  const unfavourite = (id: string) =>
+    setFavourites((prev) => prev.filter((s) => s.id !== id));
 
   const openFavouriteSongSheet = (song: Song) => {
     setSelectedSong(song);
     setSheetActions([
-      { icon: "heart-dislike", label: "Remove from Favourites", onPress: () => unfavourite(song.id), danger: true },
-      { icon: "list", label: "Add to Playlist", onPress: () => { setSelectedSong(song); setAddToPlaylistVisible(true); } },
-      { icon: "share-social", label: "Share with Friend", onPress: () => Alert.alert("Shared!", `"${song.title}" shared to chat.`) },
-      { icon: "radio", label: "Start Mood Radio", onPress: () => Alert.alert("Mood Radio", `Starting radio based on "${song.title}"`) },
+      {
+        icon: "heart-dislike",
+        label: "Remove from Favourites",
+        onPress: () => unfavourite(song.id),
+        danger: true,
+      },
+      {
+        icon: "list",
+        label: "Add to Playlist",
+        onPress: () => {
+          setSelectedSong(song);
+          setAddToPlaylistVisible(true);
+        },
+      },
+      {
+        icon: "share-social",
+        label: "Share with Friend",
+        onPress: () =>
+          Alert.alert("Shared!", `"${song.title}" shared to chat.`),
+      },
+      {
+        icon: "radio",
+        label: "Start Mood Radio",
+        onPress: () =>
+          Alert.alert("Mood Radio", `Starting radio based on "${song.title}"`),
+      },
     ]);
     setSheetVisible(true);
   };
 
   // ── Downloads ───────────────────────────────────────────────────────────────
-  const removeDownload = (id: string) => setDownloads((prev) => prev.filter((s) => s.id !== id));
+  const removeDownload = (id: string) =>
+    setDownloads((prev) => prev.filter((s) => s.id !== id));
 
   const openDownloadSongSheet = (song: Song) => {
     setSelectedSong(song);
     setSheetActions([
-      { icon: "trash", label: "Remove Download", onPress: () => removeDownload(song.id), danger: true },
       {
-        icon: "heart", label: "Add to Favourites",
+        icon: "trash",
+        label: "Remove Download",
+        onPress: () => removeDownload(song.id),
+        danger: true,
+      },
+      {
+        icon: "heart",
+        label: "Add to Favourites",
         onPress: () => {
           if (!favourites.find((f) => f.id === song.id)) {
             setFavourites((prev) => [...prev, { ...song, size: undefined }]);
@@ -266,159 +463,200 @@ console.log("songPool ids:", songPool.map((s) => s.id));
           } else Alert.alert("Already in Favourites");
         },
       },
-      { icon: "list", label: "Add to Playlist", onPress: () => { setSelectedSong(song); setAddToPlaylistVisible(true); } },
-      { icon: "share-social", label: "Share with Friend", onPress: () => Alert.alert("Shared!", `"${song.title}" shared to chat.`) },
+      {
+        icon: "list",
+        label: "Add to Playlist",
+        onPress: () => {
+          setSelectedSong(song);
+          setAddToPlaylistVisible(true);
+        },
+      },
+      {
+        icon: "share-social",
+        label: "Share with Friend",
+        onPress: () =>
+          Alert.alert("Shared!", `"${song.title}" shared to chat.`),
+      },
     ]);
     setSheetVisible(true);
   };
 
   // ── Playlists ───────────────────────────────────────────────────────────────
-  const togglePin = (id: string) => setPlaylists((prev) => prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned } : p)));
+  const togglePin = (id: string) =>
+    setPlaylists((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned } : p)),
+    );
 
   const deletePlaylist = (id: string) => {
-  Alert.alert("Delete Playlist", "This cannot be undone.", [
-    { text: "Cancel", style: "cancel" },
-    {
-      text: "Delete",
-      style: "destructive",
-      onPress: async () => {
-        try {
-          const token = await getToken();
+    Alert.alert("Delete Playlist", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const token = await getToken();
 
-          if (!token) {
-            console.log("No token found for delete");
-            Alert.alert("Error", "User not authenticated");
-            return;
-          }
+            if (!token) {
+              console.log("No token found for delete");
+              Alert.alert("Error", "User not authenticated");
+              return;
+            }
 
-          const res = await fetch(
-            `${BACKEND_URL}api/personal-playlists/${id}`,
-            {
+            const res = await fetch(`${BACKEND_URL}personal-playlists/${id}`, {
               method: "DELETE",
               headers: {
                 Authorization: `Bearer ${token}`,
               },
+            });
+
+            const text = await res.text();
+            console.log("delete playlist status:", res.status);
+            console.log("delete playlist body:", text);
+
+            let data: any = {};
+            try {
+              data = text ? JSON.parse(text) : {};
+            } catch {}
+
+            if (!res.ok) {
+              Alert.alert("Failed", data.error || "Could not delete playlist.");
+              return;
             }
-          );
 
-          const text = await res.text();
-          console.log("delete playlist status:", res.status);
-          console.log("delete playlist body:", text);
+            // ✅ Update UI after successful delete
+            setPlaylists((prev) => prev.filter((p) => p.id !== id));
 
-          let data: any = {};
-          try {
-            data = text ? JSON.parse(text) : {};
-          } catch {}
+            if (expandedPlaylistId === id) {
+              setExpandedPlaylistId(null);
+            }
 
-          if (!res.ok) {
-            Alert.alert("Failed", data.error || "Could not delete playlist.");
-            return;
+            Alert.alert("Deleted", "Playlist deleted successfully");
+          } catch (err) {
+            console.log("Error deleting playlist:", err);
+            Alert.alert("Error", "Something went wrong while deleting.");
           }
-
-          // ✅ Update UI after successful delete
-          setPlaylists((prev) => prev.filter((p) => p.id !== id));
-
-          if (expandedPlaylistId === id) {
-            setExpandedPlaylistId(null);
-          }
-
-          Alert.alert("Deleted", "Playlist deleted successfully");
-        } catch (err) {
-          console.log("Error deleting playlist:", err);
-          Alert.alert("Error", "Something went wrong while deleting.");
-        }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
   const renamePlaylist = () => {
     if (!renameText.trim() || !selectedPlaylist) return;
-    setPlaylists((prev) => prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, name: renameText.trim() } : p)));
+    setPlaylists((prev) =>
+      prev.map((p) =>
+        p.id === selectedPlaylist.id ? { ...p, name: renameText.trim() } : p,
+      ),
+    );
     setRenameVisible(false);
   };
 
   const removeSongFromPlaylist = (playlistId: string, songId: string) => {
-    setPlaylists((prev) => prev.map((p) => p.id === playlistId ? { ...p, songs: p.songs.filter((s) => s.id !== songId) } : p));
+    setPlaylists((prev) =>
+      prev.map((p) =>
+        p.id === playlistId
+          ? { ...p, songs: p.songs.filter((s) => s.id !== songId) }
+          : p,
+      ),
+    );
   };
 
   const addSongToPlaylist = async (playlistId: string, song: Song) => {
-  const playlist = playlists.find((p) => p.id === playlistId);
-  if (!playlist) return;
+    const playlist = playlists.find((p) => p.id === playlistId);
+    if (!playlist) return;
 
-  if (playlist.songs.find((s) => s.id === song.id)) {
-    Alert.alert("Already Added", `"${song.title}" is already in this playlist.`);
-    return;
-  }
-
-  try {
-    const token = await AsyncStorage.getItem("token");
-    if (!token) {
-      Alert.alert("Login required", "Please log in again.");
+    if (playlist.songs.find((s) => s.id === song.id)) {
+      Alert.alert(
+        "Already Added",
+        `"${song.title}" is already in this playlist.`,
+      );
       return;
     }
 
-    console.log("Adding song to playlist", {
-      playlistId,
-      songId: song.id,
-      title: song.title,
-    });
-
-    const res = await fetch(`${BACKEND_URL}api/personal-playlists/${playlistId}/songs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        songId: song.id,
-      }),
-    });
-
-    const text = await res.text();
-    console.log("add song response status:", res.status);
-    console.log("add song response body:", text);
-
-    let data: any = {};
     try {
-      data = text ? JSON.parse(text) : {};
-    } catch {}
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Login required", "Please log in again.");
+        return;
+      }
 
-    if (!res.ok) {
-      Alert.alert("Failed", data.error || "Could not add song to playlist.");
-      return;
+      console.log("Adding song to playlist", {
+        playlistId,
+        songId: song.id,
+        title: song.title,
+      });
+
+      const res = await fetch(
+        `${BACKEND_URL}personal-playlists/${playlistId}/songs`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            songId: song.id,
+          }),
+        },
+      );
+
+      const text = await res.text();
+      console.log("add song response status:", res.status);
+      console.log("add song response body:", text);
+
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {}
+
+      if (!res.ok) {
+        Alert.alert("Failed", data.error || "Could not add song to playlist.");
+        return;
+      }
+
+      setPlaylists((prev) =>
+        prev.map((p) =>
+          p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p,
+        ),
+      );
+
+      Alert.alert("Added!", `"${song.title}" added to "${playlist.name}".`);
+      setAddSongToPlaylistVisible(false);
+      setAddToPlaylistVisible(false);
+
+      // safest: re-fetch from backend so UI matches DB
+      await fetchPlaylists();
+    } catch (err) {
+      console.log("Error adding song to playlist:", err);
+      Alert.alert("Error", "Something went wrong while adding the song.");
     }
-
-    setPlaylists((prev) =>
-      prev.map((p) =>
-        p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p
-      )
-    );
-
-    Alert.alert("Added!", `"${song.title}" added to "${playlist.name}".`);
-    setAddSongToPlaylistVisible(false);
-    setAddToPlaylistVisible(false);
-
-    // safest: re-fetch from backend so UI matches DB
-    await fetchPlaylists();
-  } catch (err) {
-    console.log("Error adding song to playlist:", err);
-    Alert.alert("Error", "Something went wrong while adding the song.");
-  }
-};
+  };
   const openPlaylistSongSheet = (playlist: Playlist, song: Song) => {
     setSelectedSong(song);
     setSelectedPlaylist(playlist);
     setSheetActions([
-      { icon: "remove-circle", label: "Remove from Playlist", onPress: () => removeSongFromPlaylist(playlist.id, song.id), danger: true },
       {
-        icon: "heart", label: "Add to Favourites",
+        icon: "remove-circle",
+        label: "Remove from Playlist",
+        onPress: () => removeSongFromPlaylist(playlist.id, song.id),
+        danger: true,
+      },
+      {
+        icon: "heart",
+        label: "Add to Favourites",
         onPress: () => {
-          if (!favourites.find((f) => f.id === song.id)) { setFavourites((prev) => [...prev, song]); Alert.alert("Added!", `"${song.title}" added to Favourites.`); }
-          else Alert.alert("Already in Favourites");
+          if (!favourites.find((f) => f.id === song.id)) {
+            setFavourites((prev) => [...prev, song]);
+            Alert.alert("Added!", `"${song.title}" added to Favourites.`);
+          } else Alert.alert("Already in Favourites");
         },
       },
-      { icon: "share-social", label: "Share with Friend", onPress: () => Alert.alert("Shared!", `"${song.title}" shared to chat.`) },
+      {
+        icon: "share-social",
+        label: "Share with Friend",
+        onPress: () =>
+          Alert.alert("Shared!", `"${song.title}" shared to chat.`),
+      },
     ]);
     setSheetVisible(true);
   };
@@ -426,22 +664,50 @@ console.log("songPool ids:", songPool.map((s) => s.id));
   const openPlaylistSheet = (playlist: Playlist) => {
     setSelectedPlaylist(playlist);
     setSheetActions([
-      { icon: playlist.pinned ? "pin" : "pin-outline", label: playlist.pinned ? "Unpin Playlist" : "Pin to Top", onPress: () => togglePin(playlist.id) },
-      { icon: "musical-notes", label: "Add Songs", onPress: () => { setSelectedPlaylist(playlist); setAddSongToPlaylistVisible(true); } },
-      { icon: "pencil", label: "Rename Playlist", onPress: () => { setRenameText(playlist.name); setRenameVisible(true); } },
-      { icon: "share-social", label: "Share Playlist", onPress: () => Alert.alert("Shared!", `"${playlist.name}" link copied.`) },
-      { icon: "trash", label: "Delete Playlist", onPress: () => deletePlaylist(playlist.id), danger: true },
+      {
+        icon: playlist.pinned ? "pin" : "pin-outline",
+        label: playlist.pinned ? "Unpin Playlist" : "Pin to Top",
+        onPress: () => togglePin(playlist.id),
+      },
+      {
+        icon: "musical-notes",
+        label: "Add Songs",
+        onPress: () => {
+          setSelectedPlaylist(playlist);
+          setAddSongToPlaylistVisible(true);
+        },
+      },
+      {
+        icon: "pencil",
+        label: "Rename Playlist",
+        onPress: () => {
+          setRenameText(playlist.name);
+          setRenameVisible(true);
+        },
+      },
+      {
+        icon: "share-social",
+        label: "Share Playlist",
+        onPress: () =>
+          Alert.alert("Shared!", `"${playlist.name}" link copied.`),
+      },
+      {
+        icon: "trash",
+        label: "Delete Playlist",
+        onPress: () => deletePlaylist(playlist.id),
+        danger: true,
+      },
     ]);
     setSheetVisible(true);
   };
 
-    const handleCreate = async () => {
+  const handleCreate = async () => {
     if (!newPlaylistName.trim()) return;
 
     try {
       const token = await getToken();
 
-      const res = await fetch(`${BACKEND_URL}api/personal-playlists/`, {
+      const res = await fetch(`${BACKEND_URL}personal-playlists/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -483,33 +749,60 @@ console.log("songPool ids:", songPool.map((s) => s.id));
   const sortedPlaylists = (() => {
     let list = [...playlists];
     if (sortMode === "az") {
-      list = [...list.filter((p) => p.pinned).sort((a, b) => a.name.localeCompare(b.name)), ...list.filter((p) => !p.pinned).sort((a, b) => a.name.localeCompare(b.name))];
+      list = [
+        ...list
+          .filter((p) => p.pinned)
+          .sort((a, b) => a.name.localeCompare(b.name)),
+        ...list
+          .filter((p) => !p.pinned)
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      ];
     } else {
       list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
     }
-    if (searchQuery.trim()) list = list.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (searchQuery.trim())
+      list = list.filter((p) =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
     return list;
   })();
 
-  const filteredFavourites = searchQuery ? favourites.filter((s) => s.title.toLowerCase().includes(searchQuery.toLowerCase())) : favourites;
+  const filteredFavourites = searchQuery
+    ? favourites.filter((s) =>
+        s.title.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : favourites;
   const songsNotInPlaylist = selectedPlaylist
-  ? allSongsFromBackend.filter(
-      (s) => !selectedPlaylist.songs.find((ps) => String(ps.id) === String(s.id))
-    )
-  : [];
+    ? allSongsFromBackend.filter(
+        (s) =>
+          !selectedPlaylist.songs.find((ps) => String(ps.id) === String(s.id)),
+      )
+    : [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Library</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => { setSearchVisible((v) => !v); setSearchQuery(""); }}>
-            <Ionicons name={searchVisible ? "close" : "search"} size={20} color="#fff" />
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => {
+              setSearchVisible((v) => !v);
+              setSearchQuery("");
+            }}
+          >
+            <Ionicons
+              name={searchVisible ? "close" : "search"}
+              size={20}
+              color="#fff"
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setSortVisible(true)}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => setSortVisible(true)}
+          >
             <Ionicons name="funnel-outline" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -519,52 +812,121 @@ console.log("songPool ids:", songPool.map((s) => s.id));
       {searchVisible && (
         <View style={styles.searchBar}>
           <Ionicons name="search" size={16} color="#666" />
-          <TextInput style={styles.searchInput} placeholder="Search songs or playlists..." placeholderTextColor="#555" value={searchQuery} onChangeText={setSearchQuery} autoFocus />
-          {searchQuery.length > 0 && <TouchableOpacity onPress={() => setSearchQuery("")}><Ionicons name="close-circle" size={16} color="#555" /></TouchableOpacity>}
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search songs or playlists..."
+            placeholderTextColor="#555"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={16} color="#555" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Favourites */}
-        <SectionHeader icon={<Ionicons name="heart" size={18} color="#7C3AED" />} label="Favourites" count={filteredFavourites.length} expanded={expanded === "favourites"} onToggle={() => toggle("favourites")} accent />
+        <SectionHeader
+          icon={<Ionicons name="heart" size={18} color="#7C3AED" />}
+          label="Favourites"
+          count={filteredFavourites.length}
+          expanded={expanded === "favourites"}
+          onToggle={() => toggle("favourites")}
+          accent
+        />
         {expanded === "favourites" && (
           <View style={styles.expandedSection}>
-            {filteredFavourites.length === 0 ? <Text style={styles.emptyText}>No favourites yet</Text> : filteredFavourites.map((song) => (
-              <TouchableOpacity key={song.id} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
-                <Image source={{ uri: song.cover }} style={styles.songCover} />
-                <View style={styles.songInfo}>
-                  <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
-                  <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
-                </View>
-                <TouchableOpacity onPress={() => unfavourite(song.id)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
-                  <Ionicons name="heart" size={20} color="#7C3AED" />
+            {filteredFavourites.length === 0 ? (
+              <Text style={styles.emptyText}>No favourites yet</Text>
+            ) : (
+              filteredFavourites.map((song) => (
+                <TouchableOpacity
+                  key={song.id}
+                  style={styles.songRow}
+                  onPress={() => handleSongPress(song)}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={{ uri: song.cover }}
+                    style={styles.songCover}
+                  />
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle} numberOfLines={1}>
+                      {song.title}
+                    </Text>
+                    <Text style={styles.songArtist} numberOfLines={1}>
+                      {song.artist}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => unfavourite(song.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="heart" size={20} color="#7C3AED" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => openFavouriteSongSheet(song)}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => openFavouriteSongSheet(song)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
-                  <Ionicons name="ellipsis-vertical" size={18} color="#555" />
-                </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
+              ))
+            )}
           </View>
         )}
 
         {/* Downloads */}
-        <SectionHeader icon={<Ionicons name="arrow-down-circle" size={18} color="#8B6EFF" />} label="Downloads" count={downloads.length} expanded={expanded === "downloads"} onToggle={() => toggle("downloads")} />
+        <SectionHeader
+          icon={<Ionicons name="arrow-down-circle" size={18} color="#8B6EFF" />}
+          label="Downloads"
+          count={downloads.length}
+          expanded={expanded === "downloads"}
+          onToggle={() => toggle("downloads")}
+        />
         {expanded === "downloads" && (
           <View style={styles.expandedSection}>
-            {downloads.length === 0 ? <Text style={styles.emptyText}>No downloads</Text> : downloads.map((song) => (
-              <TouchableOpacity key={song.id} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
-                <Image source={{ uri: song.cover }} style={styles.songCover} />
-                <View style={styles.songInfo}>
-                  <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
-                  <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
-                </View>
-                <View style={styles.sizeTag}><Text style={styles.sizeText}>{song.size}</Text></View>
-                <TouchableOpacity onPress={() => openDownloadSongSheet(song)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
-                  <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+            {downloads.length === 0 ? (
+              <Text style={styles.emptyText}>No downloads</Text>
+            ) : (
+              downloads.map((song) => (
+                <TouchableOpacity
+                  key={song.id}
+                  style={styles.songRow}
+                  onPress={() => handleSongPress(song)}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={{ uri: song.cover }}
+                    style={styles.songCover}
+                  />
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle} numberOfLines={1}>
+                      {song.title}
+                    </Text>
+                    <Text style={styles.songArtist} numberOfLines={1}>
+                      {song.artist}
+                    </Text>
+                  </View>
+                  <View style={styles.sizeTag}>
+                    <Text style={styles.sizeText}>{song.size}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => openDownloadSongSheet(song)}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
+              ))
+            )}
           </View>
         )}
 
@@ -574,83 +936,203 @@ console.log("songPool ids:", songPool.map((s) => s.id));
         <View style={styles.playlistsHeader}>
           <View>
             <Text style={styles.playlistsTitle}>My Playlists</Text>
-            {sortMode === "az" && <Text style={styles.sortBadge}>Sorted A–Z</Text>}
+            {sortMode === "az" && (
+              <Text style={styles.sortBadge}>Sorted A–Z</Text>
+            )}
           </View>
-          <TouchableOpacity style={styles.createBtn} onPress={() => setCreateVisible(true)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={() => setCreateVisible(true)}
+            activeOpacity={0.8}
+          >
             <Ionicons name="add" size={16} color="#fff" />
             <Text style={styles.createBtnText}>New</Text>
           </TouchableOpacity>
         </View>
 
         {/* Playlist Cards */}
-        {sortedPlaylists.length === 0 ? <Text style={styles.emptyText}>No playlists found</Text> : sortedPlaylists.map((playlist) => (
-          <View key={playlist.id}>
-            <TouchableOpacity style={[styles.playlistCard, playlist.pinned && styles.playlistCardPinned, expandedPlaylistId === playlist.id && styles.playlistCardExpanded]} onPress={() => togglePlaylistExpand(playlist.id)} activeOpacity={0.75}>
-              {playlist.pinned && <View style={styles.pinnedBadge}><Ionicons name="pin" size={10} color="#7C3AED" /></View>}
-              <Image source={{ uri: playlist.cover }} style={styles.playlistCover} />
-              <View style={styles.playlistInfo}>
-                <Text style={styles.playlistName}>{playlist.name}</Text>
-                <Text style={styles.playlistMeta}>{playlist.songs.length} songs · {playlist.mood}</Text>
-              </View>
-              <View style={styles.playlistRight}>
-                <Ionicons name="play-circle" size={30} color="#7C3AED" />
-                <TouchableOpacity onPress={() => openPlaylistSheet(playlist)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
-                  <Ionicons name="ellipsis-vertical" size={18} color="#555" />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-
-            {/* Songs inside playlist */}
-            {expandedPlaylistId === playlist.id && (
-              <View style={styles.playlistSongsSection}>
-                <TouchableOpacity style={styles.addSongBtn} onPress={() => { setSelectedPlaylist(playlist); setAddSongToPlaylistVisible(true); }}>
-                  <Ionicons name="add-circle-outline" size={16} color="#7C3AED" />
-                  <Text style={styles.addSongBtnText}>Add Songs</Text>
-                </TouchableOpacity>
-                {playlist.songs.length === 0 ? <Text style={styles.emptyText}>No songs yet — add some!</Text> : playlist.songs.map((song, index) => (
-                  <TouchableOpacity key={`${playlist.id}-${song.id}-${index}`} style={styles.songRow} onPress={() => handleSongPress(song)} activeOpacity={0.7}>
-                    <Image source={{ uri: song.cover }} style={styles.songCover} />
-                    <View style={styles.songInfo}>
-                      <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
-                      <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => removeSongFromPlaylist(playlist.id, song.id)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
-                      <Ionicons name="remove-circle-outline" size={20} color="#555" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => openPlaylistSongSheet(playlist, song)} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}>
-                      <Ionicons name="ellipsis-vertical" size={18} color="#555" />
-                    </TouchableOpacity>
+        {sortedPlaylists.length === 0 ? (
+          <Text style={styles.emptyText}>No playlists found</Text>
+        ) : (
+          sortedPlaylists.map((playlist) => (
+            <View key={playlist.id}>
+              <TouchableOpacity
+                style={[
+                  styles.playlistCard,
+                  playlist.pinned && styles.playlistCardPinned,
+                  expandedPlaylistId === playlist.id &&
+                    styles.playlistCardExpanded,
+                ]}
+                onPress={() => togglePlaylistExpand(playlist.id)}
+                activeOpacity={0.75}
+              >
+                {playlist.pinned && (
+                  <View style={styles.pinnedBadge}>
+                    <Ionicons name="pin" size={10} color="#7C3AED" />
+                  </View>
+                )}
+                <Image
+                  source={{ uri: playlist.cover }}
+                  style={styles.playlistCover}
+                />
+                <View style={styles.playlistInfo}>
+                  <Text style={styles.playlistName}>{playlist.name}</Text>
+                  <Text style={styles.playlistMeta}>
+                    {playlist.songs.length} songs · {playlist.mood}
+                  </Text>
+                </View>
+                <View style={styles.playlistRight}>
+                  <Ionicons name="play-circle" size={30} color="#7C3AED" />
+                  <TouchableOpacity
+                    onPress={() => openPlaylistSheet(playlist)}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={18} color="#555" />
                   </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        ))}
+                </View>
+              </TouchableOpacity>
+
+              {/* Songs inside playlist */}
+              {expandedPlaylistId === playlist.id && (
+                <View style={styles.playlistSongsSection}>
+                  <TouchableOpacity
+                    style={styles.addSongBtn}
+                    onPress={() => {
+                      setSelectedPlaylist(playlist);
+                      setAddSongToPlaylistVisible(true);
+                    }}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={16}
+                      color="#7C3AED"
+                    />
+                    <Text style={styles.addSongBtnText}>Add Songs</Text>
+                  </TouchableOpacity>
+                  {playlist.songs.length === 0 ? (
+                    <Text style={styles.emptyText}>
+                      No songs yet — add some!
+                    </Text>
+                  ) : (
+                    playlist.songs.map((song, index) => (
+                      <TouchableOpacity
+                        key={`${playlist.id}-${song.id}-${index}`}
+                        style={styles.songRow}
+                        onPress={() => handleSongPress(song)}
+                        activeOpacity={0.7}
+                      >
+                        <Image
+                          source={{ uri: song.cover }}
+                          style={styles.songCover}
+                        />
+                        <View style={styles.songInfo}>
+                          <Text style={styles.songTitle} numberOfLines={1}>
+                            {song.title}
+                          </Text>
+                          <Text style={styles.songArtist} numberOfLines={1}>
+                            {song.artist}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() =>
+                            removeSongFromPlaylist(playlist.id, song.id)
+                          }
+                          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                        >
+                          <Ionicons
+                            name="remove-circle-outline"
+                            size={20}
+                            color="#555"
+                          />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => openPlaylistSongSheet(playlist, song)}
+                          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                        >
+                          <Ionicons
+                            name="ellipsis-vertical"
+                            size={18}
+                            color="#555"
+                          />
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+              )}
+            </View>
+          ))
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Context Sheet */}
-      <ContextSheet visible={sheetVisible} song={selectedSong} actions={sheetActions} onClose={() => setSheetVisible(false)} />
+      <ContextSheet
+        visible={sheetVisible}
+        song={selectedSong}
+        actions={sheetActions}
+        onClose={() => setSheetVisible(false)}
+      />
 
       {/* Create Playlist Modal */}
-      <Modal visible={createVisible} transparent animationType="slide" onRequestClose={() => setCreateVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setCreateVisible(false)}>
+      <Modal
+        visible={createVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCreateVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setCreateVisible(false)}
+        >
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Create Playlist</Text>
-            <TextInput style={styles.modalInput} placeholder="Playlist name..." placeholderTextColor="#555" value={newPlaylistName} onChangeText={setNewPlaylistName} autoFocus />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Playlist name..."
+              placeholderTextColor="#555"
+              value={newPlaylistName}
+              onChangeText={setNewPlaylistName}
+              autoFocus
+            />
             <Text style={styles.modalSubtitle}>Pick a mood</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 20 }}
+            >
               <View style={styles.modalMoodRow}>
                 {MOODS.map((mood) => (
-                  <TouchableOpacity key={mood} style={[styles.moodChip, selectedMood === mood && styles.moodChipActive]} onPress={() => setSelectedMood(mood)}>
-                    <Text style={[styles.moodChipText, selectedMood === mood && styles.moodChipTextActive]}>{mood}</Text>
+                  <TouchableOpacity
+                    key={mood}
+                    style={[
+                      styles.moodChip,
+                      selectedMood === mood && styles.moodChipActive,
+                    ]}
+                    onPress={() => setSelectedMood(mood)}
+                  >
+                    <Text
+                      style={[
+                        styles.moodChipText,
+                        selectedMood === mood && styles.moodChipTextActive,
+                      ]}
+                    >
+                      {mood}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </ScrollView>
-            <TouchableOpacity style={[styles.modalCreateBtn, !newPlaylistName.trim() && styles.modalCreateBtnDisabled]} onPress={handleCreate} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[
+                styles.modalCreateBtn,
+                !newPlaylistName.trim() && styles.modalCreateBtnDisabled,
+              ]}
+              onPress={handleCreate}
+              activeOpacity={0.8}
+            >
               <Text style={styles.modalCreateBtnText}>Create</Text>
             </TouchableOpacity>
           </Pressable>
@@ -658,13 +1140,35 @@ console.log("songPool ids:", songPool.map((s) => s.id));
       </Modal>
 
       {/* Rename Modal */}
-      <Modal visible={renameVisible} transparent animationType="slide" onRequestClose={() => setRenameVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setRenameVisible(false)}>
+      <Modal
+        visible={renameVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRenameVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setRenameVisible(false)}
+        >
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Rename Playlist</Text>
-            <TextInput style={styles.modalInput} placeholder="New name..." placeholderTextColor="#555" value={renameText} onChangeText={setRenameText} autoFocus />
-            <TouchableOpacity style={[styles.modalCreateBtn, !renameText.trim() && styles.modalCreateBtnDisabled]} onPress={renamePlaylist} activeOpacity={0.8}>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="New name..."
+              placeholderTextColor="#555"
+              value={renameText}
+              onChangeText={setRenameText}
+              autoFocus
+            />
+            <TouchableOpacity
+              style={[
+                styles.modalCreateBtn,
+                !renameText.trim() && styles.modalCreateBtnDisabled,
+              ]}
+              onPress={renamePlaylist}
+              activeOpacity={0.8}
+            >
               <Text style={styles.modalCreateBtnText}>Save</Text>
             </TouchableOpacity>
           </Pressable>
@@ -672,18 +1176,46 @@ console.log("songPool ids:", songPool.map((s) => s.id));
       </Modal>
 
       {/* Sort Modal */}
-      <Modal visible={sortVisible} transparent animationType="slide" onRequestClose={() => setSortVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setSortVisible(false)}>
+      <Modal
+        visible={sortVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSortVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSortVisible(false)}
+        >
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Sort Playlists</Text>
             {(["default", "az"] as SortMode[]).map((mode) => (
-              <TouchableOpacity key={mode} style={styles.sheetAction} onPress={() => { setSortMode(mode); setSortVisible(false); }}>
+              <TouchableOpacity
+                key={mode}
+                style={styles.sheetAction}
+                onPress={() => {
+                  setSortMode(mode);
+                  setSortVisible(false);
+                }}
+              >
                 <View style={styles.sheetActionIcon}>
-                  <Ionicons name={mode === "az" ? "text" : "swap-vertical"} size={18} color="#aaa" />
+                  <Ionicons
+                    name={mode === "az" ? "text" : "swap-vertical"}
+                    size={18}
+                    color="#aaa"
+                  />
                 </View>
-                <Text style={styles.sheetActionLabel}>{mode === "default" ? "Default order" : "A – Z"}</Text>
-                {sortMode === mode && <Ionicons name="checkmark" size={18} color="#7C3AED" style={{ marginLeft: "auto" }} />}
+                <Text style={styles.sheetActionLabel}>
+                  {mode === "default" ? "Default order" : "A – Z"}
+                </Text>
+                {sortMode === mode && (
+                  <Ionicons
+                    name="checkmark"
+                    size={18}
+                    color="#7C3AED"
+                    style={{ marginLeft: "auto" }}
+                  />
+                )}
               </TouchableOpacity>
             ))}
           </Pressable>
@@ -691,119 +1223,380 @@ console.log("songPool ids:", songPool.map((s) => s.id));
       </Modal>
 
       {/* Add song to playlist */}
-      <Modal visible={addToPlaylistVisible} transparent animationType="slide" onRequestClose={() => setAddToPlaylistVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setAddToPlaylistVisible(false)}>
+      <Modal
+        visible={addToPlaylistVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddToPlaylistVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setAddToPlaylistVisible(false)}
+        >
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Add to Playlist</Text>
-            {playlists.length === 0 ? <Text style={styles.emptyText}>No playlists yet. Create one first!</Text> : playlists.map((p) => (
-              <TouchableOpacity key={p.id} style={styles.sheetAction} onPress={() => selectedSong && addSongToPlaylist(p.id, selectedSong)}>
-                <Image source={{ uri: p.cover }} style={styles.sheetPlaylistThumb} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetActionLabel}>{p.name}</Text>
-                  <Text style={styles.sheetActionSub}>{p.songs.length} songs · {p.mood}</Text>
-                </View>
-                <Ionicons name="add-circle-outline" size={20} color="#7C3AED" />
-              </TouchableOpacity>
-            ))}
+            {playlists.length === 0 ? (
+              <Text style={styles.emptyText}>
+                No playlists yet. Create one first!
+              </Text>
+            ) : (
+              playlists.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.sheetAction}
+                  onPress={() =>
+                    selectedSong && addSongToPlaylist(p.id, selectedSong)
+                  }
+                >
+                  <Image
+                    source={{ uri: p.cover }}
+                    style={styles.sheetPlaylistThumb}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sheetActionLabel}>{p.name}</Text>
+                    <Text style={styles.sheetActionSub}>
+                      {p.songs.length} songs · {p.mood}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={20}
+                    color="#7C3AED"
+                  />
+                </TouchableOpacity>
+              ))
+            )}
           </Pressable>
         </Pressable>
       </Modal>
 
       {/* Add songs to a specific playlist */}
-      <Modal visible={addSongToPlaylistVisible} transparent animationType="slide" onRequestClose={() => setAddSongToPlaylistVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setAddSongToPlaylistVisible(false)}>
-          <Pressable style={[styles.modalSheet, { maxHeight: "75%" }]} onPress={() => {}}>
+      <Modal
+        visible={addSongToPlaylistVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddSongToPlaylistVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setAddSongToPlaylistVisible(false)}
+        >
+          <Pressable
+            style={[styles.modalSheet, { maxHeight: "75%" }]}
+            onPress={() => {}}
+          >
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Add Songs</Text>
-            <Text style={styles.modalSubtitle}>to "{selectedPlaylist?.name}"</Text>
+            <Text style={styles.modalSubtitle}>
+              to "{selectedPlaylist?.name}"
+            </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {songsNotInPlaylist.length === 0 ? <Text style={styles.emptyText}>All songs already added!</Text> : songsNotInPlaylist.map((song) => (
-                <TouchableOpacity key={song.id} style={styles.sheetAction} onPress={() => selectedPlaylist && addSongToPlaylist(selectedPlaylist.id, song)}>
-                  <Image source={{ uri: song.cover }} style={styles.sheetPlaylistThumb} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sheetActionLabel}>{song.title}</Text>
-                    <Text style={styles.sheetActionSub}>{song.artist}</Text>
-                  </View>
-                  <Ionicons name="add-circle-outline" size={20} color="#7C3AED" />
-                </TouchableOpacity>
-              ))}
+              {songsNotInPlaylist.length === 0 ? (
+                <Text style={styles.emptyText}>All songs already added!</Text>
+              ) : (
+                songsNotInPlaylist.map((song) => (
+                  <TouchableOpacity
+                    key={song.id}
+                    style={styles.sheetAction}
+                    onPress={() =>
+                      selectedPlaylist &&
+                      addSongToPlaylist(selectedPlaylist.id, song)
+                    }
+                  >
+                    <Image
+                      source={{ uri: song.cover }}
+                      style={styles.sheetPlaylistThumb}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetActionLabel}>{song.title}</Text>
+                      <Text style={styles.sheetActionSub}>{song.artist}</Text>
+                    </View>
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={20}
+                      color="#7C3AED"
+                    />
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a1a" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
-  headerTitle: { fontSize: 24, fontWeight: "700", color: "#fff", letterSpacing: 0.3 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.3,
+  },
   headerActions: { flexDirection: "row", gap: 8 },
-  headerBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#242424", alignItems: "center", justifyContent: "center" },
-  searchBar: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#242424", borderRadius: 14, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#242424",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#242424",
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
   searchInput: { flex: 1, fontSize: 14, color: "#fff" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#242424", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 2 },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#242424",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 2,
+  },
   sectionHeaderAccent: { borderLeftWidth: 3, borderLeftColor: "#7C3AED" },
   sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  sectionIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#2e2e2e", alignItems: "center", justifyContent: "center" },
+  sectionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#2e2e2e",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sectionIconWrapAccent: { backgroundColor: "#7C3AED22" },
   sectionLabel: { fontSize: 15, fontWeight: "600", color: "#fff" },
   sectionCount: { fontSize: 12, color: "#777", marginTop: 1 },
-  expandedSection: { backgroundColor: "#1f1f1f", borderRadius: 14, marginBottom: 8, paddingVertical: 4, overflow: "hidden" },
-  emptyText: { color: "#555", fontSize: 13, textAlign: "center", paddingVertical: 16 },
-  songRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
-  songCover: { width: 46, height: 46, borderRadius: 10, backgroundColor: "#333" },
+  expandedSection: {
+    backgroundColor: "#1f1f1f",
+    borderRadius: 14,
+    marginBottom: 8,
+    paddingVertical: 4,
+    overflow: "hidden",
+  },
+  emptyText: {
+    color: "#555",
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 16,
+  },
+  songRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  songCover: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: "#333",
+  },
   songInfo: { flex: 1 },
-  songTitle: { fontSize: 14, fontWeight: "600", color: "#fff", marginBottom: 2 },
+  songTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 2,
+  },
   songArtist: { fontSize: 12, color: "#777" },
-  sizeTag: { backgroundColor: "#2a2a2a", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  sizeTag: {
+    backgroundColor: "#2a2a2a",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
   sizeText: { fontSize: 11, color: "#888" },
   divider: { height: 1, backgroundColor: "#2a2a2a", marginVertical: 16 },
-  playlistsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  playlistsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
   playlistsTitle: { fontSize: 18, fontWeight: "700", color: "#fff" },
   sortBadge: { fontSize: 11, color: "#7C3AED", marginTop: 2 },
-  createBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#7C3AED", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
+  createBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#7C3AED",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
   createBtnText: { fontSize: 13, fontWeight: "600", color: "#fff" },
-  playlistCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#242424", borderRadius: 16, padding: 12, marginBottom: 2, gap: 12 },
+  playlistCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#242424",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 2,
+    gap: 12,
+  },
   playlistCardPinned: { borderWidth: 1, borderColor: "#7C3AED44" },
-  playlistCardExpanded: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
-  pinnedBadge: { position: "absolute", top: 8, left: 8, backgroundColor: "#7C3AED22", borderRadius: 6, padding: 3 },
-  playlistCover: { width: 54, height: 54, borderRadius: 12, backgroundColor: "#333" },
+  playlistCardExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  pinnedBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "#7C3AED22",
+    borderRadius: 6,
+    padding: 3,
+  },
+  playlistCover: {
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    backgroundColor: "#333",
+  },
   playlistInfo: { flex: 1 },
-  playlistName: { fontSize: 15, fontWeight: "600", color: "#fff", marginBottom: 4 },
+  playlistName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 4,
+  },
   playlistMeta: { fontSize: 12, color: "#777" },
   playlistRight: { alignItems: "center", gap: 8 },
-  playlistSongsSection: { backgroundColor: "#1c1c1c", borderBottomLeftRadius: 14, borderBottomRightRadius: 14, marginBottom: 10, paddingVertical: 6, overflow: "hidden" },
-  addSongBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#2a2a2a" },
+  playlistSongsSection: {
+    backgroundColor: "#1c1c1c",
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    marginBottom: 10,
+    paddingVertical: 6,
+    overflow: "hidden",
+  },
+  addSongBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2a2a2a",
+  },
   addSongBtnText: { fontSize: 13, color: "#7C3AED", fontWeight: "600" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
-  modalSheet: { backgroundColor: "#242424", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
-  modalHandle: { width: 40, height: 4, backgroundColor: "#444", borderRadius: 2, alignSelf: "center", marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: "#fff", marginBottom: 4 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: "#242424",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#444",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 4,
+  },
   modalSubtitle: { fontSize: 13, color: "#777", marginBottom: 14 },
-  modalInput: { backgroundColor: "#1a1a1a", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: "#fff", marginBottom: 16 },
+  modalInput: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: "#fff",
+    marginBottom: 16,
+  },
   modalMoodRow: { flexDirection: "row", gap: 8, paddingBottom: 4 },
-  moodChip: { backgroundColor: "#1a1a1a", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: "#333" },
+  moodChip: {
+    backgroundColor: "#1a1a1a",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
   moodChipActive: { backgroundColor: "#7C3AED22", borderColor: "#7C3AED" },
   moodChipText: { fontSize: 13, color: "#aaa" },
   moodChipTextActive: { color: "#7C3AED", fontWeight: "600" },
-  modalCreateBtn: { backgroundColor: "#7C3AED", borderRadius: 16, paddingVertical: 15, alignItems: "center" },
+  modalCreateBtn: {
+    backgroundColor: "#7C3AED",
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: "center",
+  },
   modalCreateBtnDisabled: { opacity: 0.4 },
   modalCreateBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  sheetSongPreview: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-  sheetSongCover: { width: 48, height: 48, borderRadius: 10, backgroundColor: "#333" },
+  sheetSongPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  sheetSongCover: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: "#333",
+  },
   sheetSongTitle: { fontSize: 15, fontWeight: "600", color: "#fff" },
   sheetSongArtist: { fontSize: 12, color: "#777", marginTop: 2 },
   sheetDivider: { height: 1, backgroundColor: "#333", marginBottom: 12 },
-  sheetAction: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 12 },
-  sheetActionIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#1a1a1a", alignItems: "center", justifyContent: "center" },
+  sheetAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 12,
+  },
+  sheetActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#1a1a1a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sheetActionIconDanger: { backgroundColor: "#FF4D4D18" },
   sheetActionLabel: { fontSize: 15, color: "#ddd" },
   sheetActionLabelDanger: { color: "#FF4D4D" },
   sheetActionSub: { fontSize: 12, color: "#666", marginTop: 1 },
-  sheetPlaylistThumb: { width: 40, height: 40, borderRadius: 8, backgroundColor: "#333" },
+  sheetPlaylistThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#333",
+  },
 });

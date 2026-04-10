@@ -1,6 +1,6 @@
 // profile.tsx
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
-import { AntDesign, Feather } from "@expo/vector-icons";
+import { AntDesign, Feather, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -29,32 +29,17 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 type Mood = { label: string; count: number; angleDeg: number };
 
-const MOODS: Mood[] = [
-  { label: "Love", count: 17, angleDeg: 315 },
-  { label: "Upbeat", count: 13, angleDeg: 0 },
-  { label: "Grief", count: 3, angleDeg: 45 },
-  { label: "Calm", count: 15, angleDeg: 90 },
-  { label: "Anxious", count: 16, angleDeg: 135 },
-  { label: "Anger", count: 3, angleDeg: 180 },
-  { label: "Euphoric", count: 13, angleDeg: 225 },
-  { label: "Sad", count: 15, angleDeg: 270 },
+const BASE_MOODS = [
+  { label: "Love", angleDeg: 315 },
+  { label: "Upbeat", angleDeg: 0 },
+  { label: "Grief", angleDeg: 45 },
+  { label: "Calm", angleDeg: 90 },
+  { label: "Anxious", angleDeg: 135 },
+  { label: "Anger", angleDeg: 180 },
+  { label: "Euphoric", angleDeg: 225 },
+  { label: "Sad", angleDeg: 270 },
 ];
 
-const TOP_SONGS = [
-  {
-    id: "1",
-    title: "Saath Nibhana Saathiya",
-    artist: "Falguni Pathak",
-    duration: 240,
-  },
-  {
-    id: "2",
-    title: "Tere Bin Nahi Lagda",
-    artist: "Nusrat Fateh Ali Khan",
-    duration: 300,
-  },
-  { id: "3", title: "Kun Faya Kun", artist: "A.R. Rahman", duration: 360 },
-];
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const pt = (cx: number, cy: number, r: number, a: number) => ({
@@ -70,7 +55,12 @@ export default function MusicProfile() {
   const [profileUsername, setProfileUsername] = useState("");
   const [bio, setBio] = useState("Playing with my piano\nsince 3AM");
   const [profileImage, setProfileImage] = useState("");
-  const { openSong } = useSongPlayer();
+  const [topSongs, setTopSongs] = useState<any[]>([]);
+  const [totalStreams, setTotalStreams] = useState(0);
+  const [moods, setMoods] = useState<Mood[]>(
+    BASE_MOODS.map(bm => ({ ...bm, count: 0 }))
+  );
+  const { openSong, activeSong } = useSongPlayer();
   const router = useRouter();
 
   const fetchFriendCount = useCallback(async () => {
@@ -117,13 +107,56 @@ export default function MusicProfile() {
     }
   }, []);
 
+  const fetchTopSongs = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const res = await fetch(`${BACKEND_URL}user/me/top-songs`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTopSongs(data.topSongs || []);
+        setTotalStreams(data.totalStreams || 0);
+        
+        if (data.moods) {
+          const backendMoods = new Map(data.moods.map((m: any) => [m.label.toLowerCase(), m.count]));
+          setMoods(BASE_MOODS.map(bm => ({
+            ...bm,
+            count: backendMoods.get(bm.label.toLowerCase()) || 0
+          })));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch top songs", error);
+    }
+  }, []);
+
+  const lastPlayedRef = React.useRef<number>(0);
+
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       const loadData = async () => {
-        setIsLoading(true);
-        await Promise.all([fetchFriendCount(), fetchProfile()]);
+        if (topSongs.length === 0 && !displayName) {
+          setIsLoading(true);
+        }
+        
+        const tasks = [fetchFriendCount(), fetchProfile()];
+        // If we recently played a song, skip the immediate focus fetch to prevent 
+        // fetching stale data from the database before the backend write completes.
+        // The activeSong useEffect will handle the reliable background sync.
+        if (Date.now() - lastPlayedRef.current > 2500) {
+          tasks.push(fetchTopSongs());
+        }
+        
+        await Promise.all(tasks);
+        
         if (isActive) {
           setIsLoading(false);
         }
@@ -134,8 +167,30 @@ export default function MusicProfile() {
       return () => {
         isActive = false;
       };
-    }, [fetchFriendCount, fetchProfile]),
+    }, [fetchFriendCount, fetchProfile, fetchTopSongs]),
   );
+
+  const handlePlaySong = (song: any) => {
+    // 1. Open the song in the player
+    openSong(song);
+
+    // 2. Perform optimistic updates instantly
+    lastPlayedRef.current = Date.now();
+    setTotalStreams((curr) => curr + 1);
+    
+    setTopSongs((currentTop) => {
+      const idx = currentTop.findIndex(s => s.id === song.id);
+      if (idx >= 0) {
+        const newTop = [...currentTop];
+        newTop[idx] = { ...newTop[idx], count: (newTop[idx].count || 0) + 1 };
+        return newTop.sort((a, b) => b.count - a.count);
+      }
+      return currentTop;
+    });
+
+    // Wait until they navigate away or pull to refresh to sync with server,
+    // otherwise DynamoDB eventual consistency may overwrite our optimistic update!
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 160);
@@ -192,6 +247,14 @@ export default function MusicProfile() {
           <View style={styles.headerIcons}>
             <Pressable
               style={styles.iconBtn}
+              onPress={() => router.push("/history")}
+            >
+              <View style={styles.iconStub}>
+                <MaterialIcons name="history" size={26} color="white" />
+              </View>
+            </Pressable>
+            <Pressable
+              style={styles.iconBtn}
               onPress={() => router.push("/edit-profile")}
             >
               <View style={styles.iconStub}>
@@ -228,26 +291,28 @@ export default function MusicProfile() {
         <View style={styles.divider} />
 
         <View style={{ marginTop: 8, marginBottom: 6 }}>
-          <MoodWheel size={SVG_SIZE} ready={ready} />
+          <MoodWheel size={SVG_SIZE} ready={ready} moods={moods} />
         </View>
 
         <View style={{ alignItems: "center", marginTop: 8 }}>
-          <Text style={styles.counterNum}>67</Text>
+          <Text style={styles.counterNum}>{totalStreams}</Text>
           <Text style={styles.counterLabel}>Songs this week</Text>
         </View>
 
-        <View style={styles.songsSection}>
-          <Text style={styles.sectionTitle}>Your Top Songs</Text>
-          <View style={{ height: 12 }} />
-          {TOP_SONGS.map((song) => (
-            <SongRow
-              key={song.id}
-              title={song.title}
-              subtitle={song.artist}
-              onPress={() => openSong(song)}
-            />
-          ))}
-        </View>
+        {topSongs.length > 0 && (
+          <View style={styles.songsSection}>
+            <Text style={styles.sectionTitle}>Your Top Songs</Text>
+            <View style={{ height: 12 }} />
+            {topSongs.map((song) => (
+              <SongRow
+                key={song.id}
+                title={song.title}
+                subtitle={song.artist}
+                onPress={() => handlePlaySong(song)}
+              />
+            ))}
+          </View>
+        )}
 
         <View style={{ height: 28 }} />
       </ScrollView>
@@ -258,9 +323,11 @@ export default function MusicProfile() {
 function MoodWheel({
   size = 320,
   ready = true,
+  moods = [],
 }: {
   size?: number;
   ready?: boolean;
+  moods?: Mood[];
 }) {
   const S = size;
   const CX = S / 2;
@@ -364,7 +431,7 @@ function MoodWheel({
     ].join(" ");
   }
 
-  const maxCount = Math.max(...MOODS.map((m) => m.count));
+  const maxCount = Math.max(...moods.map((m) => m.count), 1);
   function pOuterFromCount(count: number) {
     const t = count / maxCount;
     return P_MIN + t * (RI - P_MIN);
@@ -373,7 +440,7 @@ function MoodWheel({
   return (
     <Svg width={S} height={S} viewBox={`0 0 ${S} ${S}`}>
       <Circle cx={CX} cy={CY} r={RO} />
-      {MOODS.map((m, i) => {
+      {moods.map((m, i) => {
         const pOuter = pOuterFromCount(m.count);
         return (
           <Path
@@ -386,7 +453,7 @@ function MoodWheel({
         );
       })}
       <Circle cx={CX} cy={CY} r={P_MIN} fill="#111" />
-      {MOODS.map((m, i) => {
+      {moods.map((m, i) => {
         const pOuter = pOuterFromCount(m.count);
         const gid = `g${i}`;
         const angleR = rad(m.angleDeg);

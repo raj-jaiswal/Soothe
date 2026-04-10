@@ -1,7 +1,6 @@
 import SectionHeader from '@/components/explore/SectionHeader';
 import RecentSongCard from '@/components/explore/RecentSongCard';
-import ArtistCard from '@/components/explore/ArtistCard';
-import { RECENT_SONGS, TOP_ARTISTS } from '@/constants/explore/exploreMockData';
+import { RECENT_SONGS } from '@/constants/explore/exploreMockData';
 import { Song, Artist } from '@/constants/explore/ExploreTypes';
 import { useSongPlayer } from '@/components/index/SongPlayerContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,7 +26,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 
-const MOODS = ['All', 'Chill', 'Happy', 'Sad', 'Focus', 'Hype'];
 const MAX_TOP_PLAYLISTS = 10;
 
 type SeeAllType = 'songs' | 'playlists' | 'artists' | null;
@@ -139,6 +137,7 @@ interface SeeAllModalProps {
   onPlaylistPress: (playlist: PublicPlaylistUI) => void;
   onArtistPress: (artist: Artist) => void;
   playlists: PublicPlaylistUI[];
+  artistPlaylists: PublicPlaylistUI[];
   playlistsLoading: boolean;
   playlistsError: string | null;
 }
@@ -150,6 +149,7 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
   onPlaylistPress,
   onArtistPress,
   playlists,
+  artistPlaylists,
   playlistsLoading,
   playlistsError,
 }) => {
@@ -227,21 +227,21 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
               </>
             )}
 
-            {type === 'artists' && TOP_ARTISTS.map((artist) => (
+            {type === 'artists' && artistPlaylists.map((pl) => (
               <TouchableOpacity
-                key={artist.id}
+                key={pl.id}
                 style={modalStyles.row}
-                onPress={() => { onArtistPress(artist); onClose(); }}
+                onPress={() => { onPlaylistPress(pl); onClose(); }}
                 activeOpacity={0.75}
               >
                 <View style={modalStyles.rowLeft}>
                   <Image
-                    source={{ uri: artist.profileImage }}
+                    source={{ uri: pl.image }}
                     style={[modalStyles.rowThumb, modalStyles.rowThumbCircle]}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={modalStyles.rowTitle}>{artist.name}</Text>
-                    <Text style={modalStyles.rowSub}>{artist.genre}</Text>
+                    <Text style={modalStyles.rowTitle}>{pl.name}</Text>
+                    <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
                   </View>
                 </View>
                 <Feather name="chevron-right" size={18} color="#555" />
@@ -274,8 +274,11 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
     (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
   );
 
-  const matchedArtists = TOP_ARTISTS.filter(
-    (a) => a.name.toLowerCase().includes(q) || a.genre.toLowerCase().includes(q)
+  const matchedArtists = playlists.filter(
+    (p) =>
+      p.type === 'artist' &&
+      (p.name.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q))
   );
 
   const hasResults = matchedSongs.length + matchedPlaylists.length + matchedArtists.length > 0;
@@ -334,16 +337,16 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
       {matchedArtists.length > 0 && (
         <>
           <Text style={searchStyles.groupTitle}>Artists</Text>
-          {matchedArtists.map((artist) => (
-            <View key={artist.id} style={modalStyles.row}>
+          {matchedArtists.map((pl) => (
+            <View key={pl.id} style={modalStyles.row}>
               <View style={modalStyles.rowLeft}>
                 <Image
-                  source={{ uri: artist.profileImage }}
+                  source={{ uri: pl.image }}
                   style={[modalStyles.rowThumb, modalStyles.rowThumbCircle]}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={modalStyles.rowTitle}>{artist.name}</Text>
-                  <Text style={modalStyles.rowSub}>{artist.genre}</Text>
+                  <Text style={modalStyles.rowTitle}>{pl.name}</Text>
+                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
                 </View>
               </View>
             </View>
@@ -359,7 +362,6 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
 // ── Main Screen ────────────────────────────────────────────────
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeMood, setActiveMood] = useState('All');
   const [seeAllType, setSeeAllType] = useState<SeeAllType>(null);
   const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>([]);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
@@ -431,6 +433,12 @@ const ExploreScreen: React.FC = () => {
     [publicPlaylists]
   );
 
+  const artistPlaylists = useMemo(() => {
+    return publicPlaylists
+      .filter((p) => p.type === 'artist')   
+      .slice(0, MAX_TOP_PLAYLISTS);
+  }, [publicPlaylists]);
+
   const handleSongPress = (song: Song) => {
     openSong({
       id: song.id,
@@ -497,25 +505,6 @@ const ExploreScreen: React.FC = () => {
           />
         ) : (
           <>
-            {/* ── Mood Chips ── */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.moodRow}
-            >
-              {MOODS.map((mood) => (
-                <TouchableOpacity
-                  key={mood}
-                  style={[styles.moodChip, activeMood === mood && styles.moodChipActive]}
-                  onPress={() => setActiveMood(mood)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.moodChipText, activeMood === mood && styles.moodChipTextActive]}>
-                    {mood}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
 
             {/* ── Recent Songs ── */}
             <View style={styles.section}>
@@ -570,16 +559,39 @@ const ExploreScreen: React.FC = () => {
             {/* ── Top Artists ── */}
             <View style={styles.section}>
               <SectionHeader title="Top Artists" onSeeAll={() => setSeeAllType('artists')} />
-              <FlatList
-                data={TOP_ARTISTS}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-                renderItem={({ item }) => (
-                  <ArtistCard artist={item} onPress={handleArtistPress} />
-                )}
-              />
+
+              {playlistsLoading && artistPlaylists.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator color="#8B5CF6" />
+                  <Text style={styles.loadingText}>Loading artists...</Text>
+                </View>
+              ) : playlistsError && artistPlaylists.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <Feather name="alert-triangle" size={18} color="#8B5CF6" />
+                  <Text style={styles.loadingText}>{playlistsError}</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={artistPlaylists}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalList}
+                  renderItem={({ item }) => (
+                    <PlaylistPreviewCard
+                      playlist={item}
+                      onPress={handlePlaylistPress}
+                    />
+                  )}
+                  ListEmptyComponent={
+                    !playlistsLoading ? (
+                      <View style={styles.loadingBox}>
+                        <Text style={styles.loadingText}>No artist playlists found.</Text>
+                      </View>
+                    ) : null
+                  }
+                />
+              )}
             </View>
 
             <View style={{ height: 100 }} />
@@ -601,6 +613,7 @@ const ExploreScreen: React.FC = () => {
         onPlaylistPress={handlePlaylistPress}
         onArtistPress={handleArtistPress}
         playlists={publicPlaylists}
+        artistPlaylists={artistPlaylists}
         playlistsLoading={playlistsLoading}
         playlistsError={playlistsError}
       />

@@ -32,6 +32,8 @@ const titleXml = `<svg width="938" height="314" viewBox="0 0 938 314" fill="none
 
 const WelcomeScreen: React.FC = () => {
   const router = useRouter();
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+  const API_BASE = `${BACKEND_URL}api`;
 
   const [fontsLoaded] = useFonts({
     "Poppins-Bold": require("@/assets/fonts/Poppins-Bold.ttf"),
@@ -49,27 +51,31 @@ const WelcomeScreen: React.FC = () => {
       console.log(process.env.EXPO_PUBLIC_BACKEND_URL);
 
       if (token) {
-        try {
-          const res = await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_URL}auth/verify-token`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
+  try {
+    console.log("Saved token exists:", token);
 
-          if (res.ok) {
-            router.replace("/(tabs)");
-            return;
-          } else {
-            await AsyncStorage.removeItem("token");
-          }
-        } catch {
-          // ignore network error → stay on welcome
-        }
-      }
+    const res = await fetch(`${API_BASE}/auth/verify-token`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const text = await res.text();
+    console.log("verify-token status:", res.status);
+    console.log("verify-token response:", text);
+
+    if (res.ok) {
+      router.replace("/(tabs)");
+      return;
+    } else {
+      await AsyncStorage.removeItem("token");
+      console.log("Token removed because verify-token was not ok");
+    }
+  } catch (error) {
+    console.log("verify-token fetch error:", error);
+  }
+}
 
       // run animations if not redirected
       Animated.stagger(150, [

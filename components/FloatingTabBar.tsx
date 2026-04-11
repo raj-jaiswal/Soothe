@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/components/context/ThemeContext"; // <-- IMPORT ADDED
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -42,8 +43,8 @@ const BUBBLE_SIZE = 65;
 const TAB_COUNT = TABS.length;
 
 export default function FloatingTabBar({ state, descriptors, navigation }) {
-  // ✅ LINE 1: get activeSong from context
   const { activeSong } = useSongPlayer();
+  const { currentMood } = useAppTheme(); // <-- HOOK ADDED
 
   const [activeTab, setActiveTab] = useState("index");
 
@@ -184,7 +185,7 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
     [bubbleX, bubbleBottom, iconOpacity, navigation, state],
   );
 
-  // ✅ LINE 2: return null when song is open — fully unmounts the tab bar
+  // ✅ return null when song is open — fully unmounts the tab bar
   if (activeSong) return null;
 
   return (
@@ -196,7 +197,12 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
         <Animated.View
           style={[
             styles.slidingBubble,
-            { left: bubbleX, bottom: bubbleBottom },
+            {
+              left: bubbleX,
+              bottom: bubbleBottom,
+              backgroundColor: currentMood.colors[1], // <-- DYNAMIC COLOR
+              shadowColor: currentMood.colors[1], // <-- DYNAMIC SHADOW
+            },
           ]}
         >
           <TouchableOpacity
@@ -235,6 +241,7 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
               activeOpacity={0.7}
               disabled={isActive}
             >
+              {/* Note: I left the inactive icon color hardcoded to #1A1A1A so it remains visible against the white bar */}
               {!isActive && tab.icon("#1A1A1A", size)}
             </TouchableOpacity>
           );
@@ -281,10 +288,9 @@ const styles = StyleSheet.create({
     width: BUBBLE_SIZE,
     height: BUBBLE_SIZE,
     borderRadius: BUBBLE_SIZE / 2,
-    backgroundColor: "#7B2FF7",
+    // Background and shadow colors are now applied dynamically inline
     elevation: 4,
     zIndex: 10,
-    shadowColor: "#7B2FF7",
     shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 14,

@@ -1,6 +1,6 @@
-import { MoodItem } from '@/constants/moods';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useRef } from 'react';
+import { MoodItem } from "@/constants/moods";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useCallback, useRef } from "react";
 import {
   Animated,
   Dimensions,
@@ -9,9 +9,9 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from "react-native";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // ─────────────────────────────────────────────
 // 🎛️  TUNING PARAMS — change these to adjust feel
@@ -27,7 +27,7 @@ const SNAP_FRICTION = 5;
 // 🎨 GRADIENT PARAMS
 // ─────────────────────────────────────────────
 
-const BG_COLOR = '#1C1C1E';
+const BG_COLOR = "#1C1C1E";
 const FADE_HEIGHT = 180;
 
 // ─────────────────────────────────────────────
@@ -39,9 +39,10 @@ const BUBBLE_SIZE = 90;
 const BUBBLE_R = WHEEL_RADIUS - BUBBLE_SIZE / 2 - 14;
 
 const LABEL_H = 20;
-const LABEL_W = WHEEL_RADIUS * 0.40;
+const LABEL_W = WHEEL_RADIUS * 0.4;
 const GAP = 20;
-const LABEL_R = (BUBBLE_R - BUBBLE_SIZE / 2) - GAP - LABEL_W / 2 + WHEEL_RADIUS * 0.01;
+const LABEL_R =
+  BUBBLE_R - BUBBLE_SIZE / 2 - GAP - LABEL_W / 2 + WHEEL_RADIUS * 0.01;
 
 const NUM_ITEMS = 14;
 const ANGLE_STEP = (2 * Math.PI) / NUM_ITEMS;
@@ -51,9 +52,15 @@ interface SpinWheelProps {
   moods: MoodItem[];
   activeIndex: number;
   onIndexChange: (index: number) => void;
+  onSettle?: (index: number) => void;
 }
 
-export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps) {
+export function SpinWheel({
+  moods,
+  activeIndex,
+  onIndexChange,
+  onSettle,
+}: SpinWheelProps) {
   const items = [...moods, ...moods];
 
   const initialRotation = SELECTION_ANGLE - activeIndex * ANGLE_STEP;
@@ -71,7 +78,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       const index = ((Math.round(raw) % NUM_ITEMS) + NUM_ITEMS) % NUM_ITEMS;
       return index % moods.length;
     },
-    [moods.length]
+    [moods.length],
   );
 
   const snapToNearest = useCallback(
@@ -87,15 +94,22 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         tension: SNAP_TENSION,
         friction: SNAP_FRICTION,
       });
+
       springAnim.current.start(({ finished }) => {
         if (finished) {
           currentRotation.current = snapped;
           rotation.setValue(snapped);
-          onIndexChange(getIndexFromRotation(snapped));
+          const finalIndex = getIndexFromRotation(snapped);
+          onIndexChange(finalIndex);
+
+          // 2. Check if the function was passed before calling it
+          if (onSettle) {
+            onSettle(finalIndex);
+          }
         }
       });
     },
-    [rotation, onIndexChange, getIndexFromRotation]
+    [rotation, onIndexChange, getIndexFromRotation, onSettle],
   );
 
   const runMomentum = useCallback(
@@ -110,7 +124,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       onIndexChange(getIndexFromRotation(currentRotation.current));
       animFrameRef.current = requestAnimationFrame(() => runMomentum(nextVel));
     },
-    [rotation, onIndexChange, getIndexFromRotation, snapToNearest]
+    [rotation, onIndexChange, getIndexFromRotation, snapToNearest],
   );
 
   const panResponder = useRef(
@@ -141,16 +155,21 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
       },
 
       onPanResponderRelease: () => {
-        const v = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocityRef.current));
+        const v = Math.max(
+          -MAX_VELOCITY,
+          Math.min(MAX_VELOCITY, velocityRef.current),
+        );
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = requestAnimationFrame(() => runMomentum(v));
       },
-    })
+    }),
   ).current;
 
   return (
     <View style={styles.clipContainer} {...panResponder.panHandlers}>
-      <View style={[styles.wheelContainer, { left: SCREEN_WIDTH - WHEEL_RADIUS }]}>
+      <View
+        style={[styles.wheelContainer, { left: SCREEN_WIDTH - WHEEL_RADIUS }]}
+      >
         <View style={styles.outerRing} />
 
         <Animated.View
@@ -161,7 +180,7 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
                 {
                   rotate: rotation.interpolate({
                     inputRange: [-10000, 10000],
-                    outputRange: ['-10000rad', '10000rad'],
+                    outputRange: ["-10000rad", "10000rad"],
                   }),
                 },
               ],
@@ -181,11 +200,16 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
             const ly = WHEEL_RADIUS + LABEL_R * sinA - LABEL_H / 2;
             const textAngleDeg = (angle * 180) / Math.PI + 180;
 
-            const imageRotationDeg = (i * (360 / NUM_ITEMS)) - 180;
+            const imageRotationDeg = i * (360 / NUM_ITEMS) - 180;
 
             return (
               <View key={`${mood.id}-${i}`}>
-                <View style={[styles.bubble, { left: bx, top: by, opacity: isActive ? 1 : 0.6 }]}>
+                <View
+                  style={[
+                    styles.bubble,
+                    { left: bx, top: by, opacity: isActive ? 1 : 0.6 },
+                  ]}
+                >
                   <Image
                     source={mood.image}
                     style={[
@@ -208,7 +232,13 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
                     },
                   ]}
                 >
-                  <Text style={[styles.label, { color: isActive ? '#BBBBBB' : '#4A4A4A' }]} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.label,
+                      { color: isActive ? "#BBBBBB" : "#4A4A4A" },
+                    ]}
+                    numberOfLines={1}
+                  >
                     {mood.label}
                   </Text>
                 </View>
@@ -218,18 +248,16 @@ export function SpinWheel({ moods, activeIndex, onIndexChange }: SpinWheelProps)
         </Animated.View>
       </View>
 
-      {/* Top fade */}
       <LinearGradient
-        colors={[BG_COLOR, 'transparent']}
+        colors={[BG_COLOR, "transparent"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.fade, { top: 0 }]}
         pointerEvents="none"
       />
 
-      {/* Bottom fade */}
       <LinearGradient
-        colors={['transparent', BG_COLOR]}
+        colors={["transparent", BG_COLOR]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.fade, { bottom: 0 }]}
@@ -243,49 +271,49 @@ const styles = StyleSheet.create({
   clipContainer: {
     width: SCREEN_WIDTH,
     height: WHEEL_SIZE,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   wheelContainer: {
-    position: 'absolute',
+    position: "absolute",
     width: WHEEL_SIZE,
     height: WHEEL_SIZE,
   },
   outerRing: {
-    position: 'absolute',
+    position: "absolute",
     width: WHEEL_SIZE,
     height: WHEEL_SIZE,
     borderRadius: WHEEL_RADIUS,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: "#1E1E1E",
   },
   wheel: {
-    position: 'absolute',
+    position: "absolute",
     width: WHEEL_SIZE,
     height: WHEEL_SIZE,
   },
   bubble: {
-    position: 'absolute',
+    position: "absolute",
     width: BUBBLE_SIZE,
     height: BUBBLE_SIZE,
     borderRadius: BUBBLE_SIZE / 2,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   bubbleImage: {
     width: BUBBLE_SIZE,
     height: BUBBLE_SIZE,
   },
   labelWrapper: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    position: "absolute",
+    justifyContent: "center",
+    alignItems: "flex-start",
   },
   label: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   fade: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     height: FADE_HEIGHT,

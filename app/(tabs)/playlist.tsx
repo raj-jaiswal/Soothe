@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/components/context/ThemeContext";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -220,6 +221,7 @@ const SectionHeader = ({
   expanded,
   onToggle,
   accent,
+  accentColor,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -227,15 +229,22 @@ const SectionHeader = ({
   expanded: boolean;
   onToggle: () => void;
   accent?: boolean;
+  accentColor: string;
 }) => (
   <TouchableOpacity
-    style={[styles.sectionHeader, accent && styles.sectionHeaderAccent]}
+    style={[
+      styles.sectionHeader,
+      accent && { borderLeftWidth: 3, borderLeftColor: accentColor },
+    ]}
     onPress={onToggle}
     activeOpacity={0.75}
   >
     <View style={styles.sectionHeaderLeft}>
       <View
-        style={[styles.sectionIconWrap, accent && styles.sectionIconWrapAccent]}
+        style={[
+          styles.sectionIconWrap,
+          accent && { backgroundColor: `${accentColor}22` },
+        ]}
       >
         {icon}
       </View>
@@ -257,8 +266,9 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 const API_BASE = `${BACKEND_URL}`;
 
 export default function PlaylistScreen() {
-  // ✅ Correct — inside the component
   const { openSong } = useSongPlayer();
+  const { currentMood } = useAppTheme();
+
   const getToken = async () => {
     return await AsyncStorage.getItem("token");
   };
@@ -387,7 +397,6 @@ export default function PlaylistScreen() {
     }
   };
 
-  // ── Helper to open player ──────────────────────────────────────────────────
   const handleSongPress = (song: Song) => {
     openSong({
       id: song.id,
@@ -403,7 +412,6 @@ export default function PlaylistScreen() {
   const togglePlaylistExpand = (id: string) =>
     setExpandedPlaylistId((prev) => (prev === id ? null : id));
 
-  // ── Favourites ──────────────────────────────────────────────────────────────
   const unfavourite = (id: string) =>
     setFavourites((prev) => prev.filter((s) => s.id !== id));
 
@@ -440,7 +448,6 @@ export default function PlaylistScreen() {
     setSheetVisible(true);
   };
 
-  // ── Downloads ───────────────────────────────────────────────────────────────
   const removeDownload = (id: string) =>
     setDownloads((prev) => prev.filter((s) => s.id !== id));
 
@@ -481,7 +488,6 @@ export default function PlaylistScreen() {
     setSheetVisible(true);
   };
 
-  // ── Playlists ───────────────────────────────────────────────────────────────
   const togglePin = (id: string) =>
     setPlaylists((prev) =>
       prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned } : p)),
@@ -524,7 +530,6 @@ export default function PlaylistScreen() {
               return;
             }
 
-            // ✅ Update UI after successful delete
             setPlaylists((prev) => prev.filter((p) => p.id !== id));
 
             if (expandedPlaylistId === id) {
@@ -624,7 +629,6 @@ export default function PlaylistScreen() {
       setAddSongToPlaylistVisible(false);
       setAddToPlaylistVisible(false);
 
-      // safest: re-fetch from backend so UI matches DB
       await fetchPlaylists();
     } catch (err) {
       console.log("Error adding song to playlist:", err);
@@ -665,7 +669,7 @@ export default function PlaylistScreen() {
     setSelectedPlaylist(playlist);
     setSheetActions([
       {
-        icon: playlist.pinned ? "pin" : "pin-outline",
+        icon: "pin",
         label: playlist.pinned ? "Unpin Playlist" : "Pin to Top",
         onPress: () => togglePin(playlist.id),
       },
@@ -745,7 +749,6 @@ export default function PlaylistScreen() {
     }
   };
 
-  // ── Derived lists ──────────────────────────────────────────────────────────
   const sortedPlaylists = (() => {
     let list = [...playlists];
     if (sortMode === "az") {
@@ -779,7 +782,6 @@ export default function PlaylistScreen() {
       )
     : [];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -834,12 +836,15 @@ export default function PlaylistScreen() {
       >
         {/* Favourites */}
         <SectionHeader
-          icon={<Ionicons name="heart" size={18} color="#7C3AED" />}
+          icon={
+            <Ionicons name="heart" size={18} color={currentMood.colors[1]} />
+          }
           label="Favourites"
           count={filteredFavourites.length}
           expanded={expanded === "favourites"}
           onToggle={() => toggle("favourites")}
           accent
+          accentColor={currentMood.colors[1]}
         />
         {expanded === "favourites" && (
           <View style={styles.expandedSection}>
@@ -869,7 +874,11 @@ export default function PlaylistScreen() {
                     onPress={() => unfavourite(song.id)}
                     hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   >
-                    <Ionicons name="heart" size={20} color="#7C3AED" />
+                    <Ionicons
+                      name="heart"
+                      size={20}
+                      color={currentMood.colors[1]}
+                    />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openFavouriteSongSheet(song)}
@@ -885,11 +894,18 @@ export default function PlaylistScreen() {
 
         {/* Downloads */}
         <SectionHeader
-          icon={<Ionicons name="arrow-down-circle" size={18} color="#8B6EFF" />}
+          icon={
+            <Ionicons
+              name="arrow-down-circle"
+              size={18}
+              color={currentMood.colors[2]}
+            />
+          }
           label="Downloads"
           count={downloads.length}
           expanded={expanded === "downloads"}
           onToggle={() => toggle("downloads")}
+          accentColor={currentMood.colors[2]}
         />
         {expanded === "downloads" && (
           <View style={styles.expandedSection}>
@@ -937,11 +953,18 @@ export default function PlaylistScreen() {
           <View>
             <Text style={styles.playlistsTitle}>My Playlists</Text>
             {sortMode === "az" && (
-              <Text style={styles.sortBadge}>Sorted A–Z</Text>
+              <Text
+                style={[styles.sortBadge, { color: currentMood.colors[1] }]}
+              >
+                Sorted A–Z
+              </Text>
             )}
           </View>
           <TouchableOpacity
-            style={styles.createBtn}
+            style={[
+              styles.createBtn,
+              { backgroundColor: currentMood.colors[1] },
+            ]}
             onPress={() => setCreateVisible(true)}
             activeOpacity={0.8}
           >
@@ -959,7 +982,10 @@ export default function PlaylistScreen() {
               <TouchableOpacity
                 style={[
                   styles.playlistCard,
-                  playlist.pinned && styles.playlistCardPinned,
+                  playlist.pinned && {
+                    borderWidth: 1,
+                    borderColor: `${currentMood.colors[1]}44`,
+                  },
                   expandedPlaylistId === playlist.id &&
                     styles.playlistCardExpanded,
                 ]}
@@ -967,8 +993,17 @@ export default function PlaylistScreen() {
                 activeOpacity={0.75}
               >
                 {playlist.pinned && (
-                  <View style={styles.pinnedBadge}>
-                    <Ionicons name="pin" size={10} color="#7C3AED" />
+                  <View
+                    style={[
+                      styles.pinnedBadge,
+                      { backgroundColor: `${currentMood.colors[1]}22` },
+                    ]}
+                  >
+                    <Ionicons
+                      name="pin"
+                      size={10}
+                      color={currentMood.colors[1]}
+                    />
                   </View>
                 )}
                 <Image
@@ -982,7 +1017,11 @@ export default function PlaylistScreen() {
                   </Text>
                 </View>
                 <View style={styles.playlistRight}>
-                  <Ionicons name="play-circle" size={30} color="#7C3AED" />
+                  <Ionicons
+                    name="play-circle"
+                    size={30}
+                    color={currentMood.colors[1]}
+                  />
                   <TouchableOpacity
                     onPress={() => openPlaylistSheet(playlist)}
                     hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
@@ -1005,9 +1044,16 @@ export default function PlaylistScreen() {
                     <Ionicons
                       name="add-circle-outline"
                       size={16}
-                      color="#7C3AED"
+                      color={currentMood.colors[1]}
                     />
-                    <Text style={styles.addSongBtnText}>Add Songs</Text>
+                    <Text
+                      style={[
+                        styles.addSongBtnText,
+                        { color: currentMood.colors[1] },
+                      ]}
+                    >
+                      Add Songs
+                    </Text>
                   </TouchableOpacity>
                   {playlist.songs.length === 0 ? (
                     <Text style={styles.emptyText}>
@@ -1109,14 +1155,20 @@ export default function PlaylistScreen() {
                     key={mood}
                     style={[
                       styles.moodChip,
-                      selectedMood === mood && styles.moodChipActive,
+                      selectedMood === mood && {
+                        backgroundColor: `${currentMood.colors[1]}22`,
+                        borderColor: currentMood.colors[1],
+                      },
                     ]}
                     onPress={() => setSelectedMood(mood)}
                   >
                     <Text
                       style={[
                         styles.moodChipText,
-                        selectedMood === mood && styles.moodChipTextActive,
+                        selectedMood === mood && {
+                          color: currentMood.colors[1],
+                          fontWeight: "600",
+                        },
                       ]}
                     >
                       {mood}
@@ -1129,6 +1181,7 @@ export default function PlaylistScreen() {
               style={[
                 styles.modalCreateBtn,
                 !newPlaylistName.trim() && styles.modalCreateBtnDisabled,
+                { backgroundColor: currentMood.colors[1] },
               ]}
               onPress={handleCreate}
               activeOpacity={0.8}
@@ -1165,6 +1218,7 @@ export default function PlaylistScreen() {
               style={[
                 styles.modalCreateBtn,
                 !renameText.trim() && styles.modalCreateBtnDisabled,
+                { backgroundColor: currentMood.colors[1] },
               ]}
               onPress={renamePlaylist}
               activeOpacity={0.8}
@@ -1212,7 +1266,7 @@ export default function PlaylistScreen() {
                   <Ionicons
                     name="checkmark"
                     size={18}
-                    color="#7C3AED"
+                    color={currentMood.colors[1]}
                     style={{ marginLeft: "auto" }}
                   />
                 )}
@@ -1262,7 +1316,7 @@ export default function PlaylistScreen() {
                   <Ionicons
                     name="add-circle-outline"
                     size={20}
-                    color="#7C3AED"
+                    color={currentMood.colors[1]}
                   />
                 </TouchableOpacity>
               ))
@@ -1315,7 +1369,7 @@ export default function PlaylistScreen() {
                     <Ionicons
                       name="add-circle-outline"
                       size={20}
-                      color="#7C3AED"
+                      color={currentMood.colors[1]}
                     />
                   </TouchableOpacity>
                 ))
@@ -1376,7 +1430,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 2,
   },
-  sectionHeaderAccent: { borderLeftWidth: 3, borderLeftColor: "#7C3AED" },
   sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   sectionIconWrap: {
     width: 36,
@@ -1386,7 +1439,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sectionIconWrapAccent: { backgroundColor: "#7C3AED22" },
   sectionLabel: { fontSize: 15, fontWeight: "600", color: "#fff" },
   sectionCount: { fontSize: 12, color: "#777", marginTop: 1 },
   expandedSection: {
@@ -1438,12 +1490,11 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   playlistsTitle: { fontSize: 18, fontWeight: "700", color: "#fff" },
-  sortBadge: { fontSize: 11, color: "#7C3AED", marginTop: 2 },
+  sortBadge: { fontSize: 11, marginTop: 2 },
   createBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#7C3AED",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
@@ -1458,7 +1509,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     gap: 12,
   },
-  playlistCardPinned: { borderWidth: 1, borderColor: "#7C3AED44" },
   playlistCardExpanded: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
@@ -1467,7 +1517,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     left: 8,
-    backgroundColor: "#7C3AED22",
     borderRadius: 6,
     padding: 3,
   },
@@ -1503,7 +1552,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#2a2a2a",
   },
-  addSongBtnText: { fontSize: 13, color: "#7C3AED", fontWeight: "600" },
+  addSongBtnText: { fontSize: 13, fontWeight: "600" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -1549,11 +1598,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#333",
   },
-  moodChipActive: { backgroundColor: "#7C3AED22", borderColor: "#7C3AED" },
   moodChipText: { fontSize: 13, color: "#aaa" },
-  moodChipTextActive: { color: "#7C3AED", fontWeight: "600" },
   modalCreateBtn: {
-    backgroundColor: "#7C3AED",
     borderRadius: 16,
     paddingVertical: 15,
     alignItems: "center",

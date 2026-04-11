@@ -1,12 +1,7 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import { Song } from './ExploreTypes';
+import { useAppTheme } from "@/components/context/ThemeContext"; // <-- IMPORT ADDED
+import React from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Song } from "./ExploreTypes";
 
 interface RecentSongCardProps {
   song: Song;
@@ -20,6 +15,8 @@ const formatPlays = (plays: number): string => {
 };
 
 const RecentSongCard: React.FC<RecentSongCardProps> = ({ song, onPress }) => {
+  const { currentMood } = useAppTheme(); // <-- HOOK ADDED
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -27,8 +24,10 @@ const RecentSongCard: React.FC<RecentSongCardProps> = ({ song, onPress }) => {
       activeOpacity={0.75}
     >
       <Image source={{ uri: song.albumArt }} style={styles.albumArt} />
-      {/* Purple play indicator bar at bottom of image */}
-      <View style={styles.playBar} />
+      {/* Dynamic play indicator bar at bottom of image */}
+      <View
+        style={[styles.playBar, { backgroundColor: currentMood.colors[1] }]}
+      />
       <Text style={styles.songTitle} numberOfLines={1}>
         {song.title}
       </Text>
@@ -46,9 +45,9 @@ const styles = StyleSheet.create({
   card: {
     width: 130,
     marginRight: 14,
-    backgroundColor: '#222222',
+    backgroundColor: "#222222",
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     paddingBottom: 12,
   },
   albumArt: {
@@ -56,35 +55,35 @@ const styles = StyleSheet.create({
     height: 130,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    backgroundColor: '#333',
+    backgroundColor: "#333",
   },
   playBar: {
     height: 3,
-    width: '60%',
-    backgroundColor: '#8B5CF6',
+    width: "60%",
     borderRadius: 2,
     marginTop: 10,
     marginHorizontal: 10,
+    // Removed hardcoded background color
   },
   songTitle: {
     marginTop: 6,
     marginHorizontal: 10,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   artistName: {
     marginTop: 2,
     marginHorizontal: 10,
     fontSize: 11,
-    color: '#888888',
-    fontWeight: '400',
+    color: "#888888",
+    fontWeight: "400",
   },
   plays: {
     marginTop: 4,
     marginHorizontal: 10,
     fontSize: 10,
-    color: '#555555',
+    color: "#555555",
   },
 });
 

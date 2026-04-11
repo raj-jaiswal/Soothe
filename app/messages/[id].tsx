@@ -1,5 +1,6 @@
 import "react-native-get-random-values";
 
+import { useAppTheme } from "@/components/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CryptoJS from "crypto-js";
@@ -7,9 +8,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, // <-- IMPORT ADDED
+  ActivityIndicator,
   FlatList,
-  Image, // <-- IMPORT ADDED
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -30,7 +31,6 @@ type Message = {
   timeStamp: number;
 };
 
-// Helper for the avatar fallback
 function getInitials(name?: string) {
   if (!name) return "?";
   return name
@@ -46,19 +46,19 @@ export default function MessagePage() {
     id: chatId,
     name,
     recipientUsername,
-    profileImage, // <-- Added param extraction
+    profileImage,
   } = useLocalSearchParams();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
+
+  const { currentMood } = useAppTheme();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [myUsername, setMyUsername] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [isLoading, setIsLoading] = useState(true); // <-- Added loading state
-
-  // Derive Shared Secret securely based on alphabetically sorting usernames
   const sharedKey = [myUsername, String(recipientUsername)].sort().join("_");
 
   useEffect(() => {
@@ -72,7 +72,6 @@ export default function MessagePage() {
       const decoded: any = jwtDecode(token);
       if (isActive) setMyUsername(decoded.username);
 
-      // 1. Fetch History
       try {
         const res = await fetch(`${BACKEND_URL}chats/${chatId}/messages`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -102,13 +101,11 @@ export default function MessagePage() {
       } catch (error) {
         console.error("Failed to fetch messages", error);
       } finally {
-        if (isActive) setIsLoading(false); // Stop loading spinner
+        if (isActive) setIsLoading(false);
       }
 
-      // If the user backed out while fetching, don't create a socket!
       if (!isActive) return;
 
-      // 2. Initialize Socket Connection
       socketInstance = io(BACKEND_URL.replace("/api/", ""), {
         auth: { token },
       });
@@ -131,7 +128,6 @@ export default function MessagePage() {
           timeStamp: msgRecord.timeStamp,
         };
 
-        // 3. SAFEGUARD: Check if the message ID is already in the list before adding
         setMessages((prev) => {
           if (prev.some((m) => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
@@ -143,7 +139,6 @@ export default function MessagePage() {
 
     if (chatId) initChat();
 
-    // CLEANUP: Runs when component unmounts
     return () => {
       isActive = false;
       if (socketInstance) {
@@ -155,7 +150,6 @@ export default function MessagePage() {
   const sendMessage = () => {
     if (!inputText.trim() || !socket) return;
 
-    // Encrypt the text
     const ciphertext = CryptoJS.AES.encrypt(
       inputText.trim(),
       sharedKey,
@@ -165,7 +159,7 @@ export default function MessagePage() {
       chatId,
       recipientUsername,
       ciphertext,
-      iv: "default", // AES in CryptoJS handles IV internally, just passing a string for schema matching
+      iv: "default",
       messageType: "text",
     });
 
@@ -176,7 +170,9 @@ export default function MessagePage() {
     <View
       style={[
         styles.messageBubble,
-        item.sender === "me" ? styles.myMessage : styles.theirMessage,
+        item.sender === "me"
+          ? [styles.myMessage, { backgroundColor: currentMood.colors[1] }]
+          : styles.theirMessage,
       ]}
     >
       <Text style={styles.messageText}>{item.text}</Text>
@@ -189,7 +185,6 @@ export default function MessagePage() {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* === NEW HEADER SECTION === */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -215,10 +210,9 @@ export default function MessagePage() {
           </View>
         </View>
 
-        {/* === MAIN CONTENT (SPINNER OR LIST) === */}
         {isLoading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#7B2FF7" />
+            <ActivityIndicator size="large" color={currentMood.colors[1]} />
           </View>
         ) : (
           <FlatList
@@ -235,7 +229,6 @@ export default function MessagePage() {
             onLayout={() =>
               flatListRef.current?.scrollToEnd({ animated: true })
             }
-            /* === EMPTY STATE ADDED === */
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
@@ -255,7 +248,13 @@ export default function MessagePage() {
             onChangeText={setInputText}
             onSubmitEditing={sendMessage}
           />
-          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              { backgroundColor: currentMood.colors[1] },
+            ]}
+            onPress={sendMessage}
+          >
             <Ionicons name="send" size={18} color="white" />
           </TouchableOpacity>
         </View>
@@ -268,7 +267,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#1f1f1f" },
   container: { flex: 1, paddingHorizontal: 20 },
 
-  // === UPDATED HEADER STYLES ===
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -306,11 +304,10 @@ const styles = StyleSheet.create({
   },
   title: { color: "white", fontSize: 18, fontWeight: "600" },
 
-  // List & Message Styles
   list: { flex: 1 },
   listContent: {
     paddingVertical: 10,
-    flexGrow: 1, // Ensures empty state centers correctly
+    flexGrow: 1,
   },
   messageBubble: {
     maxWidth: "70%",
@@ -318,11 +315,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginVertical: 6,
   },
-  myMessage: { alignSelf: "flex-end", backgroundColor: "#7B2FF7" },
+  myMessage: { alignSelf: "flex-end" },
   theirMessage: { alignSelf: "flex-start", backgroundColor: "#333" },
   messageText: { color: "white", fontSize: 15 },
 
-  // Input Styles
   chatBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -334,13 +330,11 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, color: "white", paddingVertical: 10, fontSize: 15 },
   sendButton: {
-    backgroundColor: "#7B2FF7",
     padding: 10,
     borderRadius: 20,
     marginLeft: 10,
   },
 
-  // === NEW EMPTY & LOADING STATE STYLES ===
   centerContainer: {
     flex: 1,
     justifyContent: "center",

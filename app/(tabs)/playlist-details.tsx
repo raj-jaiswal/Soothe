@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/components/context/ThemeContext";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -20,6 +21,7 @@ const PlaylistDetails = () => {
   const { playlistId } = useLocalSearchParams();
   const router = useRouter();
   const { openSong } = useSongPlayer();
+  const { currentMood } = useAppTheme();
 
   const [playlist, setPlaylist] = useState<any>(null);
   const [songs, setSongs] = useState<any[]>([]);
@@ -38,7 +40,6 @@ const PlaylistDetails = () => {
       const data = await res.json();
       setPlaylist(data);
 
-      // fetch songs
       const songPromises = data.songIds.map((id: string) =>
         fetch(`${BASE_URL}songs/${id}/metadata`, {
           headers: {
@@ -61,8 +62,8 @@ const PlaylistDetails = () => {
   useEffect(() => {
     if (!playlistId) return;
 
-    setLoading(true); // 👈 ADD THIS
-    setSongs([]); // 👈 optional (prevents old songs flash)
+    setLoading(true);
+    setSongs([]);
     setPlaylist(null);
 
     fetchPlaylist();
@@ -74,15 +75,14 @@ const PlaylistDetails = () => {
       title: song.name,
       artist: song.artist,
       duration: 240,
-      coverUri: "https://picsum.photos/300", // placeholder
+      coverUri: "https://picsum.photos/300",
     });
   };
 
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
-        <Text style={styles.loadingText}></Text>
+        <ActivityIndicator size="large" color={currentMood.colors[1]} />
       </View>
     );
   }
@@ -163,10 +163,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     backgroundColor: "#111",
-  },
-  loadingText: {
-    color: "#888",
-    marginTop: 10,
-    fontSize: 13,
   },
 });

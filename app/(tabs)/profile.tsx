@@ -1,4 +1,4 @@
-// profile.tsx
+import { useAppTheme } from "@/components/context/ThemeContext";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { AntDesign, Feather, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -40,7 +40,6 @@ const BASE_MOODS = [
   { label: "Sad", angleDeg: 270 },
 ];
 
-
 const rad = (d: number) => (d * Math.PI) / 180;
 const pt = (cx: number, cy: number, r: number, a: number) => ({
   x: cx + Math.cos(a) * r,
@@ -48,6 +47,8 @@ const pt = (cx: number, cy: number, r: number, a: number) => ({
 });
 
 export default function MusicProfile() {
+  const { currentMood } = useAppTheme();
+
   const [ready, setReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [friendCount, setFriendCount] = useState(0);
@@ -58,7 +59,7 @@ export default function MusicProfile() {
   const [topSongs, setTopSongs] = useState<any[]>([]);
   const [totalStreams, setTotalStreams] = useState(0);
   const [moods, setMoods] = useState<Mood[]>(
-    BASE_MOODS.map(bm => ({ ...bm, count: 0 }))
+    BASE_MOODS.map((bm) => ({ ...bm, count: 0 })),
   );
   const { openSong, activeSong } = useSongPlayer();
   const router = useRouter();
@@ -122,13 +123,17 @@ export default function MusicProfile() {
       if (res.ok) {
         setTopSongs(data.topSongs || []);
         setTotalStreams(data.totalStreams || 0);
-        
+
         if (data.moods) {
-          const backendMoods = new Map(data.moods.map((m: any) => [m.label.toLowerCase(), m.count]));
-          setMoods(BASE_MOODS.map(bm => ({
-            ...bm,
-            count: backendMoods.get(bm.label.toLowerCase()) || 0
-          })));
+          const backendMoods = new Map(
+            data.moods.map((m: any) => [m.label.toLowerCase(), m.count]),
+          );
+          setMoods(
+            BASE_MOODS.map((bm) => ({
+              ...bm,
+              count: backendMoods.get(bm.label.toLowerCase()) || 0,
+            })),
+          );
         }
       }
     } catch (error) {
@@ -146,17 +151,14 @@ export default function MusicProfile() {
         if (topSongs.length === 0 && !displayName) {
           setIsLoading(true);
         }
-        
+
         const tasks = [fetchFriendCount(), fetchProfile()];
-        // If we recently played a song, skip the immediate focus fetch to prevent 
-        // fetching stale data from the database before the backend write completes.
-        // The activeSong useEffect will handle the reliable background sync.
         if (Date.now() - lastPlayedRef.current > 2500) {
           tasks.push(fetchTopSongs());
         }
-        
+
         await Promise.all(tasks);
-        
+
         if (isActive) {
           setIsLoading(false);
         }
@@ -171,15 +173,13 @@ export default function MusicProfile() {
   );
 
   const handlePlaySong = (song: any) => {
-    // 1. Open the song in the player
     openSong(song);
 
-    // 2. Perform optimistic updates instantly
     lastPlayedRef.current = Date.now();
     setTotalStreams((curr) => curr + 1);
-    
+
     setTopSongs((currentTop) => {
-      const idx = currentTop.findIndex(s => s.id === song.id);
+      const idx = currentTop.findIndex((s) => s.id === song.id);
       if (idx >= 0) {
         const newTop = [...currentTop];
         newTop[idx] = { ...newTop[idx], count: (newTop[idx].count || 0) + 1 };
@@ -187,9 +187,6 @@ export default function MusicProfile() {
       }
       return currentTop;
     });
-
-    // Wait until they navigate away or pull to refresh to sync with server,
-    // otherwise DynamoDB eventual consistency may overwrite our optimistic update!
   };
 
   useEffect(() => {
@@ -214,7 +211,7 @@ export default function MusicProfile() {
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.safe, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#c084fc" />
+        <ActivityIndicator size="large" color={currentMood.colors[1]} />
       </SafeAreaView>
     );
   }
@@ -263,7 +260,6 @@ export default function MusicProfile() {
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={handleLogout}>
               <View style={styles.iconStub}>
-                {/* Changed to Feather icon and colored red for distinction */}
                 <Feather name="log-out" size={24} color="#ff4a4a" />
               </View>
             </Pressable>
@@ -291,7 +287,12 @@ export default function MusicProfile() {
         <View style={styles.divider} />
 
         <View style={{ marginTop: 8, marginBottom: 6 }}>
-          <MoodWheel size={SVG_SIZE} ready={ready} moods={moods} />
+          <MoodWheel
+            size={SVG_SIZE}
+            ready={ready}
+            moods={moods}
+            themeColors={currentMood.colors}
+          />
         </View>
 
         <View style={{ alignItems: "center", marginTop: 8 }}>
@@ -324,10 +325,12 @@ function MoodWheel({
   size = 320,
   ready = true,
   moods = [],
+  themeColors = ["#151515", "#c084fc", "#9333ea"],
 }: {
   size?: number;
   ready?: boolean;
   moods?: Mood[];
+  themeColors?: [string, string, string];
 }) {
   const S = size;
   const CX = S / 2;
@@ -473,9 +476,17 @@ function MoodWheel({
                 gradientUnits="userSpaceOnUse"
               >
                 <Stop offset="0%" stopColor="#fff" stopOpacity="1" />
-                <Stop offset="45%" stopColor="#edd9ff" stopOpacity="1" />
-                <Stop offset="78%" stopColor="#c084fc" stopOpacity="1" />
-                <Stop offset="100%" stopColor="#9333ea" stopOpacity="1" />
+                <Stop
+                  offset="45%"
+                  stopColor={themeColors[2]}
+                  stopOpacity="0.8"
+                />
+                <Stop offset="78%" stopColor={themeColors[1]} stopOpacity="1" />
+                <Stop
+                  offset="100%"
+                  stopColor={themeColors[1]}
+                  stopOpacity="1"
+                />
               </LinearGradient>
             </Defs>
             <Path

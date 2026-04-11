@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/components/context/ThemeContext"; // <-- ADJUST PATH IF NEEDED
 import FloatingTabBar from "@/components/FloatingTabBar";
 import {
   SongPlayerProvider,
@@ -10,9 +11,10 @@ import { Modal, StyleSheet, View } from "react-native";
 
 function TabsWithPlayer() {
   const { activeSong, closeSong } = useSongPlayer();
+  const { currentMood } = useAppTheme();
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: currentMood.colors[0] }]}>
       <Tabs
         initialRouteName="index"
         tabBar={(props) => <FloatingTabBar {...props} />}
@@ -26,7 +28,6 @@ function TabsWithPlayer() {
         <Tabs.Screen name="mic" />
       </Tabs>
 
-      {/* Modal renders in a native window — above absolutely everything */}
       <Modal
         visible={!!activeSong}
         animationType="slide"
@@ -50,5 +51,5 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1C1C1C" },
+  root: { flex: 1 },
 });

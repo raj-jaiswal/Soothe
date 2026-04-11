@@ -1,3 +1,5 @@
+import { useAppTheme } from "@/components/context/ThemeContext";
+import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -6,13 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
-  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,6 +22,8 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { currentMood } = useAppTheme();
+
   const [displayName, setDisplayName] = useState("");
   const [statusLine, setStatusLine] = useState("");
   const [profileImage, setProfileImage] = useState("");
@@ -27,8 +31,7 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  
-  // NEW STATE: For the custom preview UI
+
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
@@ -106,13 +109,13 @@ export default function EditProfileScreen() {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
-      const filename = uri.split('/').pop() || 'profile.jpg';
+      const filename = uri.split("/").pop() || "profile.jpg";
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
 
       const formData = new FormData();
       // @ts-ignore
-      formData.append('profileImage', { uri, name: filename, type });
+      formData.append("profileImage", { uri, name: filename, type });
 
       const res = await fetch(`${BACKEND_URL}user/me/profile-pic`, {
         method: "POST",
@@ -125,7 +128,7 @@ export default function EditProfileScreen() {
       const data = await res.json();
       if (res.ok) {
         setProfileImage(data.profileImage);
-        setPreviewImage(null); // Close the preview modal on success
+        setPreviewImage(null);
       } else {
         Alert.alert("Upload failed", data.error || "Unable to upload photo.");
       }
@@ -141,8 +144,7 @@ export default function EditProfileScreen() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        // Turn OFF the clunky native cropper
-        allowsEditing: false, 
+        allowsEditing: false,
         quality: 0.8,
       });
 
@@ -154,7 +156,6 @@ export default function EditProfileScreen() {
         return;
       }
 
-      // Instead of uploading instantly, show our custom preview UI!
       setPreviewImage(asset.uri);
     } catch (error) {
       console.error("Error selecting image", error);
@@ -166,11 +167,15 @@ export default function EditProfileScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backLabel}>{"<"}</Text>
+          <FontAwesome name="arrow-left" color="white" />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Pressable
-          style={[styles.saveButton, saving && { opacity: 0.7 }]}
+          style={[
+            styles.saveButton,
+            saving && { opacity: 0.7 },
+            { backgroundColor: currentMood.colors[1] },
+          ]}
           onPress={saveProfile}
           disabled={saving}
         >
@@ -199,7 +204,10 @@ export default function EditProfileScreen() {
             Tap below to upload a profile picture from your device.
           </Text>
           <Pressable
-            style={styles.uploadButton}
+            style={[
+              styles.uploadButton,
+              { backgroundColor: currentMood.colors[1] },
+            ]}
             onPress={pickProfileImage}
           >
             <Text style={styles.uploadLabel}>Change photo</Text>
@@ -243,43 +251,53 @@ export default function EditProfileScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#7B2FF7" style={{ marginTop: 20 }} />
+          <ActivityIndicator
+            size="large"
+            color={currentMood.colors[1]}
+            style={{ marginTop: 20 }}
+          />
         ) : null}
       </ScrollView>
 
       {/* CUSTOM PREVIEW MODAL */}
-      <Modal
-        visible={!!previewImage}
-        transparent={true}
-        animationType="slide"
-      >
+      <Modal visible={!!previewImage} transparent={true} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Preview Avatar</Text>
-            
-            {/* This view acts as the circular "crop" mask */}
-            <View style={styles.previewCropContainer}>
+
+            <View
+              style={[
+                styles.previewCropContainer,
+                { borderColor: currentMood.colors[1] },
+              ]}
+            >
               {previewImage && (
-                <Image 
-                  source={{ uri: previewImage }} 
-                  style={styles.previewImageContent} 
+                <Image
+                  source={{ uri: previewImage }}
+                  style={styles.previewImageContent}
                 />
               )}
             </View>
-            
-            <Text style={styles.modalSubtitle}>This is how your photo will look.</Text>
+
+            <Text style={styles.modalSubtitle}>
+              This is how your photo will look.
+            </Text>
 
             <View style={styles.modalActions}>
-              <Pressable 
-                style={styles.modalCancelButton} 
+              <Pressable
+                style={styles.modalCancelButton}
                 onPress={() => setPreviewImage(null)}
                 disabled={uploadingImage}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              
-              <Pressable 
-                style={[styles.modalConfirmButton, uploadingImage && { opacity: 0.7 }]} 
+
+              <Pressable
+                style={[
+                  styles.modalConfirmButton,
+                  uploadingImage && { opacity: 0.7 },
+                  { backgroundColor: currentMood.colors[1] },
+                ]}
                 onPress={() => previewImage && uploadProfileImage(previewImage)}
                 disabled={uploadingImage}
               >
@@ -293,7 +311,6 @@ export default function EditProfileScreen() {
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
@@ -326,7 +343,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: "#7B2FF7",
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -398,7 +414,6 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     marginTop: 16,
-    backgroundColor: "#7B2FF7",
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 18,
@@ -417,7 +432,6 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 8,
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.8)",
@@ -443,16 +457,15 @@ const styles = StyleSheet.create({
   previewCropContainer: {
     width: 200,
     height: 200,
-    borderRadius: 100, // Makes it a circle
-    overflow: "hidden", // Masks the image
+    borderRadius: 100,
+    overflow: "hidden",
     borderWidth: 4,
-    borderColor: "#7B2FF7",
     backgroundColor: "#333",
   },
   previewImageContent: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover", // Ensures it fills the circle nicely
+    resizeMode: "cover",
   },
   modalSubtitle: {
     color: "#aaa",
@@ -480,7 +493,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 16,
-    backgroundColor: "#7B2FF7",
     alignItems: "center",
   },
   modalConfirmText: {

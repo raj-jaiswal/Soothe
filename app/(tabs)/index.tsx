@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/components/context/ThemeContext"; // <-- ADJUST PATH IF NEEDED
 import { ActiveMoodCard } from "@/components/index/ActiveMoodCard";
 import MoodPlayerScreen from "@/components/index/MoodPlayerScreen";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
@@ -31,6 +32,7 @@ const MAX_RECENT = 10;
 const MAX_SHOWN = 7;
 
 export default function HomeScreen() {
+  const { setAppMood } = useAppTheme();
   const router = useRouter();
   const { openSong } = useSongPlayer();
 
@@ -236,6 +238,7 @@ export default function HomeScreen() {
           moods={MOODS}
           activeIndex={activeIndex}
           onIndexChange={setActiveIndex}
+          onSettle={(index) => setAppMood(MOODS[index])}
         />
         <View style={[styles.pillOverlay, { top: pillTop, left: pillLeft }]}>
           <ActiveMoodCard mood={activeMood} onPlay={openPlayer} />

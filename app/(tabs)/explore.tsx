@@ -1,34 +1,34 @@
-import SectionHeader from '@/components/explore/SectionHeader';
-import RecentSongCard from '@/components/explore/RecentSongCard';
-import { RECENT_SONGS } from '@/constants/explore/exploreMockData';
-import { Song, Artist } from '@/constants/explore/ExploreTypes';
-import { useSongPlayer } from '@/components/index/SongPlayerContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import Feather from '@expo/vector-icons/Feather';
+import { useAppTheme } from "@/components/context/ThemeContext";
+import RecentSongCard from "@/components/explore/RecentSongCard";
+import SectionHeader from "@/components/explore/SectionHeader";
+import { useSongPlayer } from "@/components/index/SongPlayerContext";
+import { RECENT_SONGS } from "@/constants/explore/exploreMockData";
+import { Artist, Song } from "@/constants/explore/ExploreTypes";
+import Feather from "@expo/vector-icons/Feather";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  Image,
-  ScrollView,
+  ActivityIndicator,
   FlatList,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
+  Image,
+  ImageBackground,
   Modal,
   Pressable,
-  ActivityIndicator,
-  ImageBackground,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const MAX_TOP_PLAYLISTS = 10;
 
-type SeeAllType = 'songs' | 'playlists' | 'artists' | null;
+type SeeAllType = "songs" | "playlists" | "artists" | null;
 
 type PlaylistSource = {
   PK?: string;
@@ -58,12 +58,13 @@ type PublicPlaylistUI = {
 };
 
 const getApiBaseUrl = () => {
-  const raw = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
-  if (!raw) return '';
-  return raw.endsWith('/') ? raw : `${raw}/`;
+  const raw = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+  if (!raw) return "";
+  return raw.endsWith("/") ? raw : `${raw}/`;
 };
 
-const buildApiUrl = (endpoint: string) => `${getApiBaseUrl()}${endpoint.replace(/^\//, '')}`;
+const buildApiUrl = (endpoint: string) =>
+  `${getApiBaseUrl()}${endpoint.replace(/^\//, "")}`;
 
 const getPlaceholderImage = (seed: string) =>
   `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/600`;
@@ -71,17 +72,17 @@ const getPlaceholderImage = (seed: string) =>
 const normalizePlaylist = (item: PlaylistSource): PublicPlaylistUI => {
   const playlistId =
     item.playlistId ||
-    item.PK?.replace(/^PLAYLIST#/, '') ||
-    item.name?.toLowerCase().replace(/\s+/g, '_') ||
+    item.PK?.replace(/^PLAYLIST#/, "") ||
+    item.name?.toLowerCase().replace(/\s+/g, "_") ||
     `playlist_${Math.random().toString(36).slice(2, 8)}`;
 
   return {
     id: playlistId,
     playlistId,
-    name: item.name || 'Untitled Playlist',
-    description: item.description || 'Public playlist',
+    name: item.name || "Untitled Playlist",
+    description: item.description || "Public playlist",
     songCount: Number(item.songCount || item.songIds?.length || 0),
-    type: item.type || 'public',
+    type: item.type || "public",
     image: item.image || getPlaceholderImage(playlistId),
     source: item,
   };
@@ -92,7 +93,7 @@ const getPlaylistSubtitle = (playlist: PublicPlaylistUI) => {
     playlist.source.curator ||
     playlist.source.userName ||
     playlist.source.ownerName ||
-    'Public';
+    "Public";
   return `${curator} · ${playlist.songCount} songs`;
 };
 
@@ -101,7 +102,12 @@ interface PlaylistPreviewCardProps {
   onPress: (playlist: PublicPlaylistUI) => void;
 }
 
-const PlaylistPreviewCard: React.FC<PlaylistPreviewCardProps> = ({ playlist, onPress }) => {
+const PlaylistPreviewCard: React.FC<PlaylistPreviewCardProps> = ({
+  playlist,
+  onPress,
+}) => {
+  const { currentMood } = useAppTheme();
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -114,8 +120,15 @@ const PlaylistPreviewCard: React.FC<PlaylistPreviewCardProps> = ({ playlist, onP
         imageStyle={playlistCardStyles.coverImage}
       >
         <View style={playlistCardStyles.overlay} />
-        <View style={playlistCardStyles.badge}>
-          <Text style={playlistCardStyles.badgeText}>{playlist.songCount} songs</Text>
+        <View
+          style={[
+            playlistCardStyles.badge,
+            { backgroundColor: currentMood.colors[1] },
+          ]}
+        >
+          <Text style={playlistCardStyles.badgeText}>
+            {playlist.songCount} songs
+          </Text>
         </View>
       </ImageBackground>
 
@@ -129,7 +142,6 @@ const PlaylistPreviewCard: React.FC<PlaylistPreviewCardProps> = ({ playlist, onP
   );
 };
 
-// ── See All Modal ──────────────────────────────────────────────
 interface SeeAllModalProps {
   type: SeeAllType;
   onClose: () => void;
@@ -153,12 +165,22 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
   playlistsLoading,
   playlistsError,
 }) => {
+  const { currentMood } = useAppTheme();
+
   const title =
-    type === 'songs' ? 'Recent Songs' :
-    type === 'playlists' ? 'Top Playlists' : 'Top Artists';
+    type === "songs"
+      ? "Recent Songs"
+      : type === "playlists"
+        ? "Top Playlists"
+        : "Top Artists";
 
   return (
-    <Modal visible={!!type} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={!!type}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={modalStyles.backdrop}>
         <Pressable style={modalStyles.backdropPress} onPress={onClose} />
         <View style={modalStyles.sheet}>
@@ -172,81 +194,112 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {type === 'songs' && RECENT_SONGS.map((song) => (
-              <TouchableOpacity
-                key={song.id}
-                style={modalStyles.row}
-                onPress={() => { onSongPress(song); onClose(); }}
-                activeOpacity={0.75}
-              >
-                <View style={modalStyles.rowLeft}>
-                  <Image source={{ uri: song.albumArt }} style={modalStyles.rowThumb} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={modalStyles.rowTitle}>{song.title}</Text>
-                    <Text style={modalStyles.rowSub}>{song.artist}</Text>
+            {type === "songs" &&
+              RECENT_SONGS.map((song) => (
+                <TouchableOpacity
+                  key={song.id}
+                  style={modalStyles.row}
+                  onPress={() => {
+                    onSongPress(song);
+                    onClose();
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={modalStyles.rowLeft}>
+                    <Image
+                      source={{ uri: song.albumArt }}
+                      style={modalStyles.rowThumb}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={modalStyles.rowTitle}>{song.title}</Text>
+                      <Text style={modalStyles.rowSub}>{song.artist}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={modalStyles.rowMeta}>{song.duration}</Text>
-              </TouchableOpacity>
-            ))}
+                  <Text style={modalStyles.rowMeta}>{song.duration}</Text>
+                </TouchableOpacity>
+              ))}
 
-            {type === 'playlists' && (
+            {type === "playlists" && (
               <>
                 {playlistsLoading && (
                   <View style={modalStyles.loadingRow}>
-                    <ActivityIndicator color="#8B5CF6" />
-                    <Text style={modalStyles.loadingText}>Loading playlists...</Text>
+                    <ActivityIndicator color={currentMood.colors[1]} />
+                    <Text style={modalStyles.loadingText}>
+                      Loading playlists...
+                    </Text>
                   </View>
                 )}
 
                 {!playlistsLoading && playlistsError ? (
                   <View style={modalStyles.emptyState}>
-                    <Feather name="alert-triangle" size={26} color="#8B5CF6" />
-                    <Text style={modalStyles.emptyTitle}>Could not load playlists</Text>
+                    <Feather
+                      name="alert-triangle"
+                      size={26}
+                      color={currentMood.colors[1]}
+                    />
+                    <Text style={modalStyles.emptyTitle}>
+                      Could not load playlists
+                    </Text>
                     <Text style={modalStyles.emptySub}>{playlistsError}</Text>
                   </View>
                 ) : null}
 
-                {!playlistsLoading && !playlistsError && playlists.map((pl) => (
-                  <TouchableOpacity
-                    key={pl.id}
-                    style={modalStyles.row}
-                    onPress={() => { onPlaylistPress(pl); onClose(); }}
-                    activeOpacity={0.75}
-                  >
-                    <View style={modalStyles.rowLeft}>
-                      <Image source={{ uri: pl.image }} style={modalStyles.rowThumb} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                        <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
+                {!playlistsLoading &&
+                  !playlistsError &&
+                  playlists.map((pl) => (
+                    <TouchableOpacity
+                      key={pl.id}
+                      style={modalStyles.row}
+                      onPress={() => {
+                        onPlaylistPress(pl);
+                        onClose();
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={modalStyles.rowLeft}>
+                        <Image
+                          source={{ uri: pl.image }}
+                          style={modalStyles.rowThumb}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.rowTitle}>{pl.name}</Text>
+                          <Text style={modalStyles.rowSub}>
+                            {getPlaylistSubtitle(pl)}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                    <Feather name="chevron-right" size={18} color="#555" />
-                  </TouchableOpacity>
-                ))}
+                      <Feather name="chevron-right" size={18} color="#555" />
+                    </TouchableOpacity>
+                  ))}
               </>
             )}
 
-            {type === 'artists' && artistPlaylists.map((pl) => (
-              <TouchableOpacity
-                key={pl.id}
-                style={modalStyles.row}
-                onPress={() => { onPlaylistPress(pl); onClose(); }}
-                activeOpacity={0.75}
-              >
-                <View style={modalStyles.rowLeft}>
-                  <Image
-                    source={{ uri: pl.image }}
-                    style={[modalStyles.rowThumb, modalStyles.rowThumbCircle]}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                    <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
+            {type === "artists" &&
+              artistPlaylists.map((pl) => (
+                <TouchableOpacity
+                  key={pl.id}
+                  style={modalStyles.row}
+                  onPress={() => {
+                    onPlaylistPress(pl);
+                    onClose();
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={modalStyles.rowLeft}>
+                    <Image
+                      source={{ uri: pl.image }}
+                      style={[modalStyles.rowThumb, modalStyles.rowThumbCircle]}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={modalStyles.rowTitle}>{pl.name}</Text>
+                      <Text style={modalStyles.rowSub}>
+                        {getPlaylistSubtitle(pl)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <Feather name="chevron-right" size={18} color="#555" />
-              </TouchableOpacity>
-            ))}
+                  <Feather name="chevron-right" size={18} color="#555" />
+                </TouchableOpacity>
+              ))}
 
             <View style={{ height: 40 }} />
           </ScrollView>
@@ -256,32 +309,40 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
   );
 };
 
-// ── Search Results ─────────────────────────────────────────────
 interface SearchResultsProps {
   query: string;
   onSongPress: (song: Song) => void;
   playlists: PublicPlaylistUI[];
 }
 
-const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playlists }) => {
+const SearchResults: React.FC<SearchResultsProps> = ({
+  query,
+  onSongPress,
+  playlists,
+}) => {
+  const { currentMood } = useAppTheme();
   const q = query.toLowerCase();
 
   const matchedSongs = RECENT_SONGS.filter(
-    (s) => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)
+    (s) =>
+      s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q),
   );
 
   const matchedPlaylists = playlists.filter(
-    (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+    (p) =>
+      p.name.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q),
   );
 
   const matchedArtists = playlists.filter(
     (p) =>
-      p.type === 'artist' &&
+      p.type === "artist" &&
       (p.name.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q))
+        p.description.toLowerCase().includes(q)),
   );
 
-  const hasResults = matchedSongs.length + matchedPlaylists.length + matchedArtists.length > 0;
+  const hasResults =
+    matchedSongs.length + matchedPlaylists.length + matchedArtists.length > 0;
 
   if (!hasResults) {
     return (
@@ -293,10 +354,17 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
   }
 
   return (
-    <ScrollView style={searchStyles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={searchStyles.container}
+      showsVerticalScrollIndicator={false}
+    >
       {matchedSongs.length > 0 && (
         <>
-          <Text style={searchStyles.groupTitle}>Songs</Text>
+          <Text
+            style={[searchStyles.groupTitle, { color: currentMood.colors[1] }]}
+          >
+            Songs
+          </Text>
           {matchedSongs.map((song) => (
             <TouchableOpacity
               key={song.id}
@@ -305,7 +373,10 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
               activeOpacity={0.75}
             >
               <View style={modalStyles.rowLeft}>
-                <Image source={{ uri: song.albumArt }} style={modalStyles.rowThumb} />
+                <Image
+                  source={{ uri: song.albumArt }}
+                  style={modalStyles.rowThumb}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{song.title}</Text>
                   <Text style={modalStyles.rowSub}>{song.artist}</Text>
@@ -319,14 +390,23 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
 
       {matchedPlaylists.length > 0 && (
         <>
-          <Text style={searchStyles.groupTitle}>Playlists</Text>
+          <Text
+            style={[searchStyles.groupTitle, { color: currentMood.colors[1] }]}
+          >
+            Playlists
+          </Text>
           {matchedPlaylists.map((pl) => (
             <View key={pl.id} style={modalStyles.row}>
               <View style={modalStyles.rowLeft}>
-                <Image source={{ uri: pl.image }} style={modalStyles.rowThumb} />
+                <Image
+                  source={{ uri: pl.image }}
+                  style={modalStyles.rowThumb}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
+                  <Text style={modalStyles.rowSub}>
+                    {getPlaylistSubtitle(pl)}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -336,7 +416,11 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
 
       {matchedArtists.length > 0 && (
         <>
-          <Text style={searchStyles.groupTitle}>Artists</Text>
+          <Text
+            style={[searchStyles.groupTitle, { color: currentMood.colors[1] }]}
+          >
+            Artists
+          </Text>
           {matchedArtists.map((pl) => (
             <View key={pl.id} style={modalStyles.row}>
               <View style={modalStyles.rowLeft}>
@@ -346,7 +430,9 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
+                  <Text style={modalStyles.rowSub}>
+                    {getPlaylistSubtitle(pl)}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -359,11 +445,13 @@ const SearchResults: React.FC<SearchResultsProps> = ({ query, onSongPress, playl
   );
 };
 
-// ── Main Screen ────────────────────────────────────────────────
 const ExploreScreen: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const { currentMood } = useAppTheme();
+  const [searchQuery, setSearchQuery] = useState("");
   const [seeAllType, setSeeAllType] = useState<SeeAllType>(null);
-  const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>([]);
+  const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>(
+    [],
+  );
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
   const [playlistsError, setPlaylistsError] = useState<string | null>(null);
 
@@ -378,25 +466,27 @@ const ExploreScreen: React.FC = () => {
       setPlaylistsLoading(true);
       setPlaylistsError(null);
 
-      const token = await AsyncStorage.getItem('token');
+      const token = await AsyncStorage.getItem("token");
       const headers: Record<string, string> = {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
+        Accept: "application/json",
+        "Content-Type": "application/json",
       };
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
+        headers["x-auth-token"] = token;
       }
 
-      const response = await fetch(buildApiUrl('public-playlists'), {
-        method: 'GET',
+      const response = await fetch(buildApiUrl("public-playlists"), {
+        method: "GET",
         headers,
       });
 
       if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        throw new Error(text || `Failed to fetch playlists (${response.status})`);
+        const text = await response.text().catch(() => "");
+        throw new Error(
+          text || `Failed to fetch playlists (${response.status})`,
+        );
       }
 
       const data = await response.json();
@@ -417,7 +507,7 @@ const ExploreScreen: React.FC = () => {
 
       setPublicPlaylists(normalized);
     } catch (error: any) {
-      setPlaylistsError(error?.message || 'Unable to load playlists');
+      setPlaylistsError(error?.message || "Unable to load playlists");
       setPublicPlaylists([]);
     } finally {
       setPlaylistsLoading(false);
@@ -430,12 +520,12 @@ const ExploreScreen: React.FC = () => {
 
   const topPlaylists = useMemo(
     () => publicPlaylists.slice(0, MAX_TOP_PLAYLISTS),
-    [publicPlaylists]
+    [publicPlaylists],
   );
 
   const artistPlaylists = useMemo(() => {
     return publicPlaylists
-      .filter((p) => p.type === 'artist')   
+      .filter((p) => p.type === "artist")
       .slice(0, MAX_TOP_PLAYLISTS);
   }, [publicPlaylists]);
 
@@ -451,13 +541,13 @@ const ExploreScreen: React.FC = () => {
 
   const handlePlaylistPress = (playlist: PublicPlaylistUI) => {
     router.push({
-      pathname: '/(tabs)/playlist-details',
+      pathname: "/(tabs)/playlist-details",
       params: { playlistId: playlist.playlistId },
     });
   };
 
   const handleArtistPress = (artist: Artist) => {
-    console.log('Artist pressed:', artist.name);
+    console.log("Artist pressed:", artist.name);
   };
 
   return (
@@ -469,7 +559,6 @@ const ExploreScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Header ── */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Explore</Text>
@@ -480,7 +569,6 @@ const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* ── Search Bar ── */}
         <View style={styles.searchWrapper}>
           <TextInput
             style={styles.searchInput}
@@ -490,13 +578,15 @@ const ExploreScreen: React.FC = () => {
             onChangeText={setSearchQuery}
           />
           {isSearching && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              activeOpacity={0.7}
+            >
               <Feather name="x-circle" size={18} color="#555" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* ── Search Results ── */}
         {isSearching ? (
           <SearchResults
             query={searchQuery}
@@ -505,10 +595,11 @@ const ExploreScreen: React.FC = () => {
           />
         ) : (
           <>
-
-            {/* ── Recent Songs ── */}
             <View style={styles.section}>
-              <SectionHeader title="Recent Songs" onSeeAll={() => setSeeAllType('songs')} />
+              <SectionHeader
+                title="Recent Songs"
+                onSeeAll={() => setSeeAllType("songs")}
+              />
               <FlatList
                 data={RECENT_SONGS}
                 keyExtractor={(item) => item.id}
@@ -521,18 +612,24 @@ const ExploreScreen: React.FC = () => {
               />
             </View>
 
-            {/* ── Top Playlists ── */}
             <View style={styles.section}>
-              <SectionHeader title="Top Playlists" onSeeAll={() => setSeeAllType('playlists')} />
+              <SectionHeader
+                title="Top Playlists"
+                onSeeAll={() => setSeeAllType("playlists")}
+              />
 
               {playlistsLoading && topPlaylists.length === 0 ? (
                 <View style={styles.loadingBox}>
-                  <ActivityIndicator color="#8B5CF6" />
+                  <ActivityIndicator color={currentMood.colors[1]} />
                   <Text style={styles.loadingText}>Loading playlists...</Text>
                 </View>
               ) : playlistsError && topPlaylists.length === 0 ? (
                 <View style={styles.loadingBox}>
-                  <Feather name="alert-triangle" size={18} color="#8B5CF6" />
+                  <Feather
+                    name="alert-triangle"
+                    size={18}
+                    color={currentMood.colors[1]}
+                  />
                   <Text style={styles.loadingText}>{playlistsError}</Text>
                 </View>
               ) : (
@@ -543,12 +640,17 @@ const ExploreScreen: React.FC = () => {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.horizontalList}
                   renderItem={({ item }) => (
-                    <PlaylistPreviewCard playlist={item} onPress={handlePlaylistPress} />
+                    <PlaylistPreviewCard
+                      playlist={item}
+                      onPress={handlePlaylistPress}
+                    />
                   )}
                   ListEmptyComponent={
                     !playlistsLoading ? (
                       <View style={styles.loadingBox}>
-                        <Text style={styles.loadingText}>No public playlists found.</Text>
+                        <Text style={styles.loadingText}>
+                          No public playlists found.
+                        </Text>
                       </View>
                     ) : null
                   }
@@ -556,18 +658,24 @@ const ExploreScreen: React.FC = () => {
               )}
             </View>
 
-            {/* ── Top Artists ── */}
             <View style={styles.section}>
-              <SectionHeader title="Top Artists" onSeeAll={() => setSeeAllType('artists')} />
+              <SectionHeader
+                title="Top Artists"
+                onSeeAll={() => setSeeAllType("artists")}
+              />
 
               {playlistsLoading && artistPlaylists.length === 0 ? (
                 <View style={styles.loadingBox}>
-                  <ActivityIndicator color="#8B5CF6" />
+                  <ActivityIndicator color={currentMood.colors[1]} />
                   <Text style={styles.loadingText}>Loading artists...</Text>
                 </View>
               ) : playlistsError && artistPlaylists.length === 0 ? (
                 <View style={styles.loadingBox}>
-                  <Feather name="alert-triangle" size={18} color="#8B5CF6" />
+                  <Feather
+                    name="alert-triangle"
+                    size={18}
+                    color={currentMood.colors[1]}
+                  />
                   <Text style={styles.loadingText}>{playlistsError}</Text>
                 </View>
               ) : (
@@ -586,7 +694,9 @@ const ExploreScreen: React.FC = () => {
                   ListEmptyComponent={
                     !playlistsLoading ? (
                       <View style={styles.loadingBox}>
-                        <Text style={styles.loadingText}>No artist playlists found.</Text>
+                        <Text style={styles.loadingText}>
+                          No artist playlists found.
+                        </Text>
                       </View>
                     ) : null
                   }
@@ -600,12 +710,11 @@ const ExploreScreen: React.FC = () => {
       </ScrollView>
 
       <LinearGradient
-        colors={['transparent', 'rgba(34,34,34,1)', '#181818']}
+        colors={["transparent", "rgba(34,34,34,1)", "#181818"]}
         style={styles.fadeOverlay}
         pointerEvents="none"
       />
 
-      {/* ── See All Modal ── */}
       <SeeAllModal
         type={seeAllType}
         onClose={() => setSeeAllType(null)}
@@ -621,42 +730,63 @@ const ExploreScreen: React.FC = () => {
   );
 };
 
-// ── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea:       { flex: 1, backgroundColor: '#181818' },
-  scroll:         { flex: 1 },
-  scrollContent:  { paddingTop: 16 },
+  safeArea: { flex: 1, backgroundColor: "#181818" },
+  scroll: { flex: 1 },
+  scrollContent: { paddingTop: 16 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingHorizontal: 20,
     marginBottom: 16,
   },
-  greeting:       { fontSize: 30, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
-  subGreeting:    { fontSize: 13, color: '#888888', marginTop: 2 },
+  greeting: {
+    fontSize: 30,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
+  },
+  subGreeting: { fontSize: 13, color: "#888888", marginTop: 2 },
   searchIconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#2a2a2a",
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchWrapper: {
-    marginHorizontal: 20, marginBottom: 18, backgroundColor: '#252525',
-    borderRadius: 14, paddingHorizontal: 16, height: 46, justifyContent: 'center',
-    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 18,
+    backgroundColor: "#252525",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 46,
+    justifyContent: "center",
+    flexDirection: "row",
+    alignItems: "center",
   },
-  searchInput:    { flex: 1, color: '#FFFFFF', fontSize: 14, fontWeight: '400' },
-  moodRow:        { paddingHorizontal: 20, paddingBottom: 4, marginBottom: 22, gap: 8 },
-  moodChip:       {
-    paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: '#252525', marginRight: 8,
+  searchInput: { flex: 1, color: "#FFFFFF", fontSize: 14, fontWeight: "400" },
+  moodRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+    marginBottom: 22,
+    gap: 8,
   },
-  moodChipActive: { backgroundColor: '#8B5CF6' },
-  moodChipText:   { fontSize: 13, color: '#888888', fontWeight: '600' },
-  moodChipTextActive: { color: '#FFFFFF' },
-  section:        { marginBottom: 28 },
+  moodChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#252525",
+    marginRight: 8,
+  },
+  moodChipText: { fontSize: 13, color: "#888888", fontWeight: "600" },
+  moodChipTextActive: { color: "#FFFFFF" },
+  section: { marginBottom: 28 },
   horizontalList: { paddingHorizontal: 20 },
   fadeOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -665,12 +795,12 @@ const styles = StyleSheet.create({
   loadingBox: {
     paddingHorizontal: 20,
     paddingVertical: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   loadingText: {
-    color: '#999',
+    color: "#999",
     fontSize: 13,
   },
 });
@@ -681,42 +811,41 @@ const playlistCardStyles = StyleSheet.create({
     marginRight: 14,
   },
   cover: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1,
     borderRadius: 18,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
+    overflow: "hidden",
+    justifyContent: "flex-end",
     padding: 12,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: "#2A2A2A",
   },
   coverImage: {
     borderRadius: 18,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.20)',
+    backgroundColor: "rgba(0,0,0,0.20)",
   },
   badge: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#8B5CF6',
+    alignSelf: "flex-end",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
     zIndex: 1,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   title: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 10,
   },
   subtitle: {
-    color: '#888',
+    color: "#888",
     fontSize: 12,
     marginTop: 4,
   },
@@ -725,50 +854,50 @@ const playlistCardStyles = StyleSheet.create({
 const modalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   backdropPress: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheet: {
-    backgroundColor: '#222222',
+    backgroundColor: "#222222",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
-    maxHeight: '75%',
+    maxHeight: "75%",
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#444',
-    alignSelf: 'center',
+    backgroundColor: "#444",
+    alignSelf: "center",
     marginBottom: 16,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   sheetTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: "#2a2a2a",
   },
   rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     flex: 1,
   },
@@ -776,45 +905,45 @@ const modalStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#333',
+    backgroundColor: "#333",
   },
   rowThumbCircle: {
     borderRadius: 22,
   },
   rowTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   rowSub: {
     fontSize: 12,
-    color: '#888',
+    color: "#888",
     marginTop: 2,
   },
   rowMeta: {
     fontSize: 12,
-    color: '#555',
+    color: "#555",
   },
   loadingRow: {
     paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 10,
   },
   emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 22,
     gap: 8,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   emptySub: {
-    color: '#888',
+    color: "#888",
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 
@@ -824,20 +953,19 @@ const searchStyles = StyleSheet.create({
   },
   groupTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#8B5CF6',
+    fontWeight: "700",
     marginTop: 16,
     marginBottom: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
   },
   empty: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 60,
     gap: 12,
   },
   emptyText: {
-    color: '#555',
+    color: "#555",
     fontSize: 14,
   },
 });

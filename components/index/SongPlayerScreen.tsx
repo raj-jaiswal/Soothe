@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import React, { useEffect, useRef, useState } from "react";
@@ -69,16 +69,20 @@ const BAR_SPEEDS = Array.from(
 );
 
 function makeWaveformLevels(t: number, progress: number) {
+  // Multiply t by 5 to make the overall envelope pulse 5x faster
+  const fastT = t * 2;
+
   const musicEnvelope =
     0.25 +
-    0.65 * Math.pow(Math.sin(t * 0.7) * 0.5 + 0.5, 1.8) +
+    0.65 * Math.pow(Math.sin(fastT * 0.7) * 0.5 + 0.5, 1.8) +
     0.15 * Math.sin(progress * Math.PI * 2);
 
   return Array.from({ length: BAR_COUNT }, (_, i) => {
+    // Multiply the internal frequencies to make individual bars dance faster
     const base =
-      0.35 * Math.sin(t * BAR_SPEEDS[i] + BAR_PHASES[i]) +
-      0.25 * Math.sin(t * 1.9 + i * 0.22) +
-      0.15 * Math.sin(t * 3.1 + i * 0.11);
+      0.35 * Math.sin(fastT * BAR_SPEEDS[i] + BAR_PHASES[i]) +
+      0.25 * Math.sin(fastT * 1.9 + i * 0.22) +
+      0.15 * Math.sin(fastT * 3.1 + i * 0.11);
 
     const ripple = Math.abs(base);
     const uneven = 0.18 + 0.82 * ripple;
@@ -100,12 +104,31 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
   const soundRef = useRef<Audio.Sound | null>(null);
 
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const toggleAnim = useRef(new Animated.Value(isPlaying ? 1 : 0)).current;
   const spinRef = useRef<Animated.CompositeAnimation | null>(null);
-  const [waveformLevels, setWaveformLevels] = useState<number[]>(
-    Array(BAR_COUNT).fill(0),
-  );
+
+  // 1. Convert to an array of Animated.Values to skip React re-renders
+  const waveformAnims = useRef(
+    Array.from({ length: BAR_COUNT }, () => new Animated.Value(0)),
+  ).current;
+  // 2. Store internal JS states for math calculation
+  const currentLevels = useRef(Array(BAR_COUNT).fill(0)).current;
 
   const progress = realDuration > 0 ? currentTime / realDuration : 0;
+
+  useEffect(() => {
+    Animated.spring(toggleAnim, {
+      toValue: isPlaying ? 1 : 0,
+      useNativeDriver: true,
+      bounciness: 6,
+      speed: 14,
+    }).start();
+  }, [isPlaying, toggleAnim]);
+
+  const thumbTranslateX = toggleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 64],
+  });
 
   const calculateProgress = (locationX: number, locationY: number) => {
     const dx = locationX - cx;
@@ -147,9 +170,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
         if (soundRef.current) {
           try {
             const seekPosMillis = seekTargetTime.current * 1000;
-            // 1. Move the playhead
             await soundRef.current.setPositionAsync(seekPosMillis);
-            // 2. FORCE PLAY after release
             await soundRef.current.playAsync();
 
             setCurrentTime(seekTargetTime.current);
@@ -159,7 +180,6 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           }
         }
 
-        // Cooldown to prevent status updates from glitching the UI
         setTimeout(() => {
           isSeeking.current = false;
         }, 800);
@@ -168,7 +188,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
   ).current;
 
   useEffect(() => {
-    let isMounted = true; // 1. Create a flag
+    let isMounted = true;
     let soundObj: Audio.Sound | null = null;
 
     const loadAudio = async () => {
@@ -180,7 +200,6 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // 2. Check if user already pressed back during the fetch
         if (!isMounted) return;
 
         const streamData = await streamRes.json();
@@ -199,7 +218,6 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           },
           (status: AVPlaybackStatus) => {
             if (status.isLoaded && isMounted) {
-              // 3. Only update state if mounted
               if (isLoading) setIsLoading(false);
               if (!isSeeking.current) {
                 setCurrentTime(status.positionMillis / 1000);
@@ -211,8 +229,6 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           },
         );
 
-        // 4. Critical Check: If the user left while the sound was initializing,
-        // immediately kill the "ghost" sound.
         if (!isMounted) {
           newSound.unloadAsync();
           return;
@@ -232,7 +248,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
     loadAudio();
 
     return () => {
-      isMounted = false; // 5. Mark as unmounted immediately
+      isMounted = false;
       if (soundObj) {
         soundObj.unloadAsync();
       }
@@ -255,23 +271,44 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
     }
   }, [isPlaying]);
 
+  // 3. Utilize requestAnimationFrame instead of setInterval
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
+    let reqId: number;
+
+    const tick = () => {
+      const t = Date.now() / 1000;
+      const targetLevels = makeWaveformLevels(t, progress);
+
+      for (let i = 0; i < BAR_COUNT; i++) {
+        // CHANGED: 0.4 old value + 0.6 new value makes it snap to the new position much faster
+        currentLevels[i] = currentLevels[i] * 0.4 + targetLevels[i] * 0.6;
+
+        waveformAnims[i].setValue(currentLevels[i]);
+      }
+
+      reqId = requestAnimationFrame(tick);
+    };
 
     if (isPlaying && !isLoading) {
-      interval = setInterval(() => {
-        const t = Date.now() / 1000;
-        setWaveformLevels((prev) => {
-          const next = makeWaveformLevels(t, progress);
-          return next.map((v, i) => (prev[i] ? prev[i] * 0.55 + v * 0.45 : v));
-        });
-      }, 60);
+      reqId = requestAnimationFrame(tick);
     } else {
-      setWaveformLevels(Array(BAR_COUNT).fill(0));
+      // Smooth decay when music pauses
+      const decay = () => {
+        let stillActive = false;
+        for (let i = 0; i < BAR_COUNT; i++) {
+          currentLevels[i] *= 0.85; // drop scale by 15% each frame
+          if (currentLevels[i] > 0.01) stillActive = true;
+          waveformAnims[i].setValue(currentLevels[i]);
+        }
+        if (stillActive) {
+          reqId = requestAnimationFrame(decay);
+        }
+      };
+      reqId = requestAnimationFrame(decay);
     }
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (reqId) cancelAnimationFrame(reqId);
     };
   }, [isPlaying, isLoading, progress]);
 
@@ -412,7 +449,13 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
                   height: 4,
                   backgroundColor: "#FFFFFF",
                   transform: [
-                    { scaleY: 1 + (waveformLevels[i] || 0) * (h * 18) },
+                    {
+                      // 4. Hook the Animated Value directly into the style
+                      scaleY: waveformAnims[i].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1 + h * 18],
+                      }),
+                    },
                   ],
                 },
               ]}
@@ -433,37 +476,46 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
             style={styles.skipBtn}
             onPress={() => sound?.setPositionAsync(0)}
           >
-            <Text style={styles.skipText}>|{"<"}</Text>
+            <Feather name="chevrons-left" size={24} color="white" />
           </TouchableOpacity>
+
           <View style={styles.innerPill}>
             {isLoading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
+                <View style={styles.pillDivider} />
+                <Animated.View
+                  style={[
+                    styles.thumb,
+                    { transform: [{ translateX: thumbTranslateX }] },
+                  ]}
+                />
                 <TouchableOpacity
                   style={styles.pillHalf}
                   onPress={() => sound?.pauseAsync()}
                 >
                   <Ionicons
                     name="pause"
-                    size={17}
-                    color={isPlaying ? "#FFFFFF" : "#888"}
+                    size={20}
+                    color={!isPlaying ? "#1C1C1C" : "#888"}
                   />
                 </TouchableOpacity>
-                <View style={styles.pillDivider} />
+
                 <TouchableOpacity
                   style={styles.pillHalf}
                   onPress={() => sound?.playAsync()}
                 >
                   <Ionicons
                     name="play"
-                    size={17}
-                    color={!isPlaying ? "#FFFFFF" : "#888"}
+                    size={20}
+                    color={isPlaying ? "#1C1C1C" : "#888"}
                   />
                 </TouchableOpacity>
               </>
             )}
           </View>
+
           <TouchableOpacity
             style={styles.skipBtn}
             onPress={() =>
@@ -475,7 +527,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
               )
             }
           >
-            <Text style={styles.skipText}>{">"}|</Text>
+            <Feather name="chevrons-right" size={24} color="white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -536,13 +588,19 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   songTitle: {
-    fontSize: 22,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "800",
     color: "#FFFFFF",
     textAlign: "center",
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
-  artistName: { fontSize: 14, color: "#888", textAlign: "center" },
+  artistName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#A0A0A0",
+    textAlign: "center",
+  },
   waveformContainer: {
     width: "100%",
     paddingHorizontal: 14,
@@ -563,7 +621,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     marginBottom: 24,
   },
-  timeText: { color: "#888", fontSize: 12, marginBottom: 6 },
+  timeText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
   outerPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -577,15 +640,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  skipText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   innerPill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    height: 44,
+    height: 48,
     width: 140,
     borderWidth: 2,
     borderColor: "#FFFFFF",
+    borderRadius: 999,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  pillDivider: {
+    position: "absolute",
+    left: "50%",
+    top: 14,
+    bottom: 14,
+    width: 1.5,
+    backgroundColor: "#555",
+    transform: [{ translateX: -0.75 }],
+  },
+  thumb: {
+    position: "absolute",
+    left: 4,
+    top: 4,
+    bottom: 4,
+    width: 64,
+    backgroundColor: "#FFFFFF",
     borderRadius: 999,
   },
   pillHalf: {
@@ -593,6 +674,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
+    zIndex: 2,
   },
-  pillDivider: { width: 1, height: 18, backgroundColor: "#555" },
 });

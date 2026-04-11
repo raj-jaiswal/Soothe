@@ -2,12 +2,12 @@ import { useAppTheme } from "@/components/context/ThemeContext";
 import RecentSongCard from "@/components/explore/RecentSongCard";
 import SectionHeader from "@/components/explore/SectionHeader";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
-import { RECENT_SONGS } from "@/constants/explore/exploreMockData";
 import { Artist, Song } from "@/constants/explore/ExploreTypes";
 import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,6 +27,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const MAX_TOP_PLAYLISTS = 10;
+const MAX_RECENT_SONGS = 10;
 
 type SeeAllType = "songs" | "playlists" | "artists" | null;
 
@@ -55,6 +56,18 @@ type PublicPlaylistUI = {
   type: string;
   image: string;
   source: PlaylistSource;
+};
+
+type HistoryEntry = {
+  artist?: string;
+  duration?: number;
+  name?: string;
+  songId?: string;
+  timestamp?: string;
+};
+
+type RecentSongUI = Song & {
+  timestamp?: string;
 };
 
 const getApiBaseUrl = () => {
@@ -88,13 +101,35 @@ const normalizePlaylist = (item: PlaylistSource): PublicPlaylistUI => {
   };
 };
 
-const getPlaylistSubtitle = (playlist: PublicPlaylistUI) => {
-  const curator =
-    playlist.source.curator ||
-    playlist.source.userName ||
-    playlist.source.ownerName ||
-    "Public";
-  return `${curator} · ${playlist.songCount} songs`;
+const normalizeRecentSong = (item: HistoryEntry): RecentSongUI | null => {
+  if (!item?.songId) return null;
+
+  return {
+    id: item.songId,
+    title: item.name || "Untitled Song",
+    artist: item.artist || "Unknown Artist",
+    duration: Number(item.duration || 240),
+    albumArt: getPlaceholderImage(item.songId),
+    timestamp: item.timestamp,
+  };
+};
+
+const formatRelativeTime = (timestamp?: string) => {
+  if (!timestamp) return "Recently played";
+
+  const playedAt = new Date(timestamp).getTime();
+  if (Number.isNaN(playedAt)) return "Recently played";
+
+  const diffMs = Date.now() - playedAt;
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
 };
 
 interface PlaylistPreviewCardProps {
@@ -150,6 +185,9 @@ interface SeeAllModalProps {
   onArtistPress: (artist: Artist) => void;
   playlists: PublicPlaylistUI[];
   artistPlaylists: PublicPlaylistUI[];
+  recentSongs: RecentSongUI[];
+  recentSongsLoading: boolean;
+  recentSongsError: string | null;
   playlistsLoading: boolean;
   playlistsError: string | null;
 }
@@ -162,6 +200,9 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
   onArtistPress,
   playlists,
   artistPlaylists,
+  recentSongs,
+  recentSongsLoading,
+  recentSongsError,
   playlistsLoading,
   playlistsError,
 }) => {
@@ -194,30 +235,74 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {type === "songs" &&
-              RECENT_SONGS.map((song) => (
-                <TouchableOpacity
-                  key={song.id}
-                  style={modalStyles.row}
-                  onPress={() => {
-                    onSongPress(song);
-                    onClose();
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <View style={modalStyles.rowLeft}>
-                    <Image
-                      source={{ uri: song.albumArt }}
-                      style={modalStyles.rowThumb}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={modalStyles.rowTitle}>{song.title}</Text>
-                      <Text style={modalStyles.rowSub}>{song.artist}</Text>
-                    </View>
+            {type === "songs" && (
+              <>
+                {recentSongsLoading && (
+                  <View style={modalStyles.loadingRow}>
+                    <ActivityIndicator color={currentMood.colors[1]} />
+                    <Text style={modalStyles.loadingText}>
+                      Loading recent songs...
+                    </Text>
                   </View>
-                  <Text style={modalStyles.rowMeta}>{song.duration}</Text>
-                </TouchableOpacity>
-              ))}
+                )}
+
+                {!recentSongsLoading && recentSongsError ? (
+                  <View style={modalStyles.emptyState}>
+                    <Feather
+                      name="alert-triangle"
+                      size={26}
+                      color={currentMood.colors[1]}
+                    />
+                    <Text style={modalStyles.emptyTitle}>
+                      Could not load recent songs
+                    </Text>
+                    <Text style={modalStyles.emptySub}>{recentSongsError}</Text>
+                  </View>
+                ) : null}
+
+                {!recentSongsLoading && !recentSongsError && recentSongs.length === 0 ? (
+                  <View style={modalStyles.emptyState}>
+                    <Feather
+                      name="clock"
+                      size={26}
+                      color={currentMood.colors[1]}
+                    />
+                    <Text style={modalStyles.emptyTitle}>No recent songs yet</Text>
+                    <Text style={modalStyles.emptySub}>
+                      Play a few songs and they will appear here.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {!recentSongsLoading &&
+                  !recentSongsError &&
+                  recentSongs.map((song) => (
+                    <TouchableOpacity
+                      key={song.id}
+                      style={modalStyles.row}
+                      onPress={() => {
+                        onSongPress(song);
+                        onClose();
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={modalStyles.rowLeft}>
+                        <Image
+                          source={{ uri: song.albumArt }}
+                          style={modalStyles.rowThumb}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.rowTitle}>{song.title}</Text>
+                          <Text style={modalStyles.rowSub}>{song.artist}</Text>
+                        </View>
+                      </View>
+                      <Text style={modalStyles.rowMeta}>
+                        {formatRelativeTime(song.timestamp)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </>
+            )}
 
             {type === "playlists" && (
               <>
@@ -280,7 +365,7 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
                   key={pl.id}
                   style={modalStyles.row}
                   onPress={() => {
-                    onPlaylistPress(pl);
+                    onArtistPress({ name: pl.name } as Artist);
                     onClose();
                   }}
                   activeOpacity={0.75}
@@ -313,17 +398,19 @@ interface SearchResultsProps {
   query: string;
   onSongPress: (song: Song) => void;
   playlists: PublicPlaylistUI[];
+  songs: RecentSongUI[];
 }
 
 const SearchResults: React.FC<SearchResultsProps> = ({
   query,
   onSongPress,
   playlists,
+  songs,
 }) => {
   const { currentMood } = useAppTheme();
   const q = query.toLowerCase();
 
-  const matchedSongs = RECENT_SONGS.filter(
+  const matchedSongs = songs.filter(
     (s) =>
       s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q),
   );
@@ -382,7 +469,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                   <Text style={modalStyles.rowSub}>{song.artist}</Text>
                 </View>
               </View>
-              <Text style={modalStyles.rowMeta}>{song.duration}</Text>
+              <Text style={modalStyles.rowMeta}>Song</Text>
             </TouchableOpacity>
           ))}
         </>
@@ -404,9 +491,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                  <Text style={modalStyles.rowSub}>
-                    {getPlaylistSubtitle(pl)}
-                  </Text>
+                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
                 </View>
               </View>
             </View>
@@ -430,9 +515,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                  <Text style={modalStyles.rowSub}>
-                    {getPlaylistSubtitle(pl)}
-                  </Text>
+                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
                 </View>
               </View>
             </View>
@@ -449,14 +532,14 @@ const ExploreScreen: React.FC = () => {
   const { currentMood } = useAppTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [seeAllType, setSeeAllType] = useState<SeeAllType>(null);
-  const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>(
-    [],
-  );
+  const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>([]);
+  const [recentSongs, setRecentSongs] = useState<RecentSongUI[]>([]);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
   const [playlistsError, setPlaylistsError] = useState<string | null>(null);
+  const [recentSongsLoading, setRecentSongsLoading] = useState(false);
+  const [recentSongsError, setRecentSongsError] = useState<string | null>(null);
 
   const { openSong } = useSongPlayer();
-
   const router = useRouter();
 
   const isSearching = searchQuery.trim().length > 0;
@@ -514,9 +597,78 @@ const ExploreScreen: React.FC = () => {
     }
   }, []);
 
+  const loadRecentSongs = useCallback(async () => {
+    try {
+      setRecentSongsLoading(true);
+      setRecentSongsError(null);
+
+      const token = await AsyncStorage.getItem("token");
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+        headers["x-auth-token"] = token;
+      }
+
+      const response = await fetch(buildApiUrl("user/me/history"), {
+        method: "GET",
+        headers,
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(
+          text || `Failed to fetch recent songs (${response.status})`,
+        );
+      }
+
+      const data = await response.json();
+      const history: HistoryEntry[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.history)
+          ? data.history
+          : Array.isArray(data?.songHistory)
+            ? data.songHistory
+            : Array.isArray(data?.items)
+              ? data.items
+              : [];
+
+      const sortedUnique = history
+        .slice()
+        .sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        })
+        .filter((item, index, arr) =>
+          index === arr.findIndex((entry) => entry.songId === item.songId),
+        )
+        .slice(0, MAX_RECENT_SONGS)
+        .map(normalizeRecentSong)
+        .filter((song): song is RecentSongUI => Boolean(song));
+
+      setRecentSongs(sortedUnique);
+    } catch (error: any) {
+      setRecentSongsError(error?.message || "Unable to load recent songs");
+      setRecentSongs([]);
+    } finally {
+      setRecentSongsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadPublicPlaylists();
-  }, [loadPublicPlaylists]);
+    loadRecentSongs();
+  }, [loadPublicPlaylists, loadRecentSongs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRecentSongs();
+    }, [loadRecentSongs])
+  );
 
   const topPlaylists = useMemo(
     () => publicPlaylists.slice(0, MAX_TOP_PLAYLISTS),
@@ -530,6 +682,17 @@ const ExploreScreen: React.FC = () => {
   }, [publicPlaylists]);
 
   const handleSongPress = (song: Song) => {
+    setRecentSongs(prev => {
+      const newSong = {
+        ...song,
+        timestamp: new Date().toISOString(),
+      };
+
+      const filtered = prev.filter(s => s.id !== song.id);
+
+      return [newSong, ...filtered].slice(0, 10);
+    });
+
     openSong({
       id: song.id,
       title: song.title,
@@ -592,6 +755,7 @@ const ExploreScreen: React.FC = () => {
             query={searchQuery}
             onSongPress={handleSongPress}
             playlists={publicPlaylists}
+            songs={recentSongs}
           />
         ) : (
           <>
@@ -600,16 +764,43 @@ const ExploreScreen: React.FC = () => {
                 title="Recent Songs"
                 onSeeAll={() => setSeeAllType("songs")}
               />
-              <FlatList
-                data={RECENT_SONGS}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-                renderItem={({ item }) => (
-                  <RecentSongCard song={item} onPress={handleSongPress} />
-                )}
-              />
+              {recentSongsLoading && recentSongs.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator color={currentMood.colors[1]} />
+                  <Text style={styles.loadingText}>Loading recent songs...</Text>
+                </View>
+              ) : recentSongsError && recentSongs.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <Feather
+                    name="alert-triangle"
+                    size={18}
+                    color={currentMood.colors[1]}
+                  />
+                  <Text style={styles.loadingText}>{recentSongsError}</Text>
+                </View>
+              ) : recentSongs.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <Feather
+                    name="clock"
+                    size={18}
+                    color={currentMood.colors[1]}
+                  />
+                  <Text style={styles.loadingText}>
+                    Your recent songs will appear here.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={recentSongs}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalList}
+                  renderItem={({ item }) => (
+                    <RecentSongCard song={item} onPress={handleSongPress} />
+                  )}
+                />
+              )}
             </View>
 
             <View style={styles.section}>
@@ -723,6 +914,9 @@ const ExploreScreen: React.FC = () => {
         onArtistPress={handleArtistPress}
         playlists={publicPlaylists}
         artistPlaylists={artistPlaylists}
+        recentSongs={recentSongs}
+        recentSongsLoading={recentSongsLoading}
+        recentSongsError={recentSongsError}
         playlistsLoading={playlistsLoading}
         playlistsError={playlistsError}
       />

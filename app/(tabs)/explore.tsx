@@ -5,9 +5,9 @@ import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { Artist, Song } from "@/constants/explore/ExploreTypes";
 import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,9 +20,8 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -260,14 +259,18 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
                   </View>
                 ) : null}
 
-                {!recentSongsLoading && !recentSongsError && recentSongs.length === 0 ? (
+                {!recentSongsLoading &&
+                !recentSongsError &&
+                recentSongs.length === 0 ? (
                   <View style={modalStyles.emptyState}>
                     <Feather
                       name="clock"
                       size={26}
                       color={currentMood.colors[1]}
                     />
-                    <Text style={modalStyles.emptyTitle}>No recent songs yet</Text>
+                    <Text style={modalStyles.emptyTitle}>
+                      No recent songs yet
+                    </Text>
                     <Text style={modalStyles.emptySub}>
                       Play a few songs and they will appear here.
                     </Text>
@@ -491,7 +494,9 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
+                  <Text style={modalStyles.rowSub}>
+                    {getPlaylistSubtitle(pl)}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -515,7 +520,9 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={modalStyles.rowTitle}>{pl.name}</Text>
-                  <Text style={modalStyles.rowSub}>{getPlaylistSubtitle(pl)}</Text>
+                  <Text style={modalStyles.rowSub}>
+                    {getPlaylistSubtitle(pl)}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -532,7 +539,9 @@ const ExploreScreen: React.FC = () => {
   const { currentMood } = useAppTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [seeAllType, setSeeAllType] = useState<SeeAllType>(null);
-  const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>([]);
+  const [publicPlaylists, setPublicPlaylists] = useState<PublicPlaylistUI[]>(
+    [],
+  );
   const [recentSongs, setRecentSongs] = useState<RecentSongUI[]>([]);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
   const [playlistsError, setPlaylistsError] = useState<string | null>(null);
@@ -643,8 +652,9 @@ const ExploreScreen: React.FC = () => {
           const timeB = new Date(b.timestamp || 0).getTime();
           return timeB - timeA;
         })
-        .filter((item, index, arr) =>
-          index === arr.findIndex((entry) => entry.songId === item.songId),
+        .filter(
+          (item, index, arr) =>
+            index === arr.findIndex((entry) => entry.songId === item.songId),
         )
         .slice(0, MAX_RECENT_SONGS)
         .map(normalizeRecentSong)
@@ -667,7 +677,7 @@ const ExploreScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       loadRecentSongs();
-    }, [loadRecentSongs])
+    }, [loadRecentSongs]),
   );
 
   const topPlaylists = useMemo(
@@ -682,13 +692,13 @@ const ExploreScreen: React.FC = () => {
   }, [publicPlaylists]);
 
   const handleSongPress = (song: Song) => {
-    setRecentSongs(prev => {
+    setRecentSongs((prev) => {
       const newSong = {
         ...song,
         timestamp: new Date().toISOString(),
       };
 
-      const filtered = prev.filter(s => s.id !== song.id);
+      const filtered = prev.filter((s) => s.id !== song.id);
 
       return [newSong, ...filtered].slice(0, 10);
     });
@@ -727,27 +737,9 @@ const ExploreScreen: React.FC = () => {
             <Text style={styles.greeting}>Explore</Text>
             <Text style={styles.subGreeting}>What's new today 🎵</Text>
           </View>
-          <TouchableOpacity style={styles.searchIconBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => router.push("/search")}>
             <Feather name="search" size={24} color="white" />
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchWrapper}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Artists, songs, playlists…"
-            placeholderTextColor="#555"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {isSearching && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              activeOpacity={0.7}
-            >
-              <Feather name="x-circle" size={18} color="#555" />
-            </TouchableOpacity>
-          )}
         </View>
 
         {isSearching ? (
@@ -767,7 +759,9 @@ const ExploreScreen: React.FC = () => {
               {recentSongsLoading && recentSongs.length === 0 ? (
                 <View style={styles.loadingBox}>
                   <ActivityIndicator color={currentMood.colors[1]} />
-                  <Text style={styles.loadingText}>Loading recent songs...</Text>
+                  <Text style={styles.loadingText}>
+                    Loading recent songs...
+                  </Text>
                 </View>
               ) : recentSongsError && recentSongs.length === 0 ? (
                 <View style={styles.loadingBox}>

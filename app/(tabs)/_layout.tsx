@@ -26,6 +26,7 @@ function TabsWithPlayer() {
         <Tabs.Screen name="chats" />
         <Tabs.Screen name="profile" />
         <Tabs.Screen name="mic" />
+        <Tabs.Screen name="search" />
       </Tabs>
 
       <Modal

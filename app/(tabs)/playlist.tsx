@@ -1,7 +1,8 @@
 import { useAppTheme } from "@/components/context/ThemeContext";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -267,6 +268,7 @@ const SectionHeader = ({
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 export default function PlaylistScreen() {
+  const router = useRouter();
   const { openSong } = useSongPlayer();
   const { currentMood } = useAppTheme();
 
@@ -275,7 +277,7 @@ export default function PlaylistScreen() {
   };
 
   const [expanded, setExpanded] = useState<Section>(null);
- const [favourites, setFavourites] = useState<Song[]>([]);
+  const [favourites, setFavourites] = useState<Song[]>([]);
   const [downloads, setDownloads] = useState<Song[]>(INITIAL_DOWNLOADS);
   const [playlists, setPlaylists] = useState<Playlist[]>(INITIAL_PLAYLISTS);
   const [allSongsFromBackend, setAllSongsFromBackend] = useState<Song[]>([]);
@@ -295,7 +297,7 @@ export default function PlaylistScreen() {
   const [addSongToPlaylistVisible, setAddSongToPlaylistVisible] =
     useState(false);
   const [addSongToFavouritesVisible, setAddSongToFavouritesVisible] =
-  useState(false);
+    useState(false);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
@@ -308,21 +310,21 @@ export default function PlaylistScreen() {
   const [selectedMood, setSelectedMood] = useState("Calm");
   const [renameText, setRenameText] = useState("");
 
- useEffect(() => {
-  const init = async () => {
-    try {
-      setLoading(true);
-      const songs = await fetchAllSongs();
-      await fetchPlaylists(songs);
-    } catch (err) {
-      console.log("Error initializing playlist screen:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const init = async () => {
+      try {
+        setLoading(true);
+        const songs = await fetchAllSongs();
+        await fetchPlaylists(songs);
+      } catch (err) {
+        console.log("Error initializing playlist screen:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  init();
-}, []);
+    init();
+  }, []);
 
   const fetchAllSongs = async () => {
     try {
@@ -346,18 +348,18 @@ export default function PlaylistScreen() {
       const data = text ? JSON.parse(text) : [];
 
       const formattedSongs: Song[] = (data || []).map((s: any) => ({
-  id: String(s.song_ID || s.songId || s.id),
-  title: s.title || s.name || "Untitled",
-  artist: s.artist || s.artistName || "Unknown Artist",
-  cover:
-    s.cover ||
-    s.image ||
-    s.coverArt ||
-    s.posterURL ||
-    "https://via.placeholder.com/100",
-  audioUrl: s.songURL || s.audioUrl || s.url || "",
-  isFavourite: Boolean(s.isFavourite || s.favorite || s.favourite),
-}));
+        id: String(s.song_ID || s.songId || s.id),
+        title: s.title || s.name || "Untitled",
+        artist: s.artist || s.artistName || "Unknown Artist",
+        cover:
+          s.cover ||
+          s.image ||
+          s.coverArt ||
+          s.posterURL ||
+          "https://via.placeholder.com/100",
+        audioUrl: s.songURL || s.audioUrl || s.url || "",
+        isFavourite: Boolean(s.isFavourite || s.favorite || s.favourite),
+      }));
       setAllSongsFromBackend(formattedSongs);
       setFavourites(formattedSongs.filter((song) => song.isFavourite));
       return formattedSongs;
@@ -424,61 +426,61 @@ export default function PlaylistScreen() {
     setExpandedPlaylistId((prev) => (prev === id ? null : id));
 
   const toggleFavourite = async (song: Song) => {
-  try {
-    const token = await getToken();
-    if (!token) {
-      Alert.alert("Login required", "Please log in again.");
-      return;
-    }
-
-    const alreadyFavourite = favourites.some(
-      (f) => String(f.id) === String(song.id)
-    );
-
-    const res = await fetch(`${BACKEND_URL}favourites/${song.id}`, {
-      method: alreadyFavourite ? "DELETE" : "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const text = await res.text();
-    let data: any = {};
-
     try {
-      data = text ? JSON.parse(text) : {};
-    } catch {}
+      const token = await getToken();
+      if (!token) {
+        Alert.alert("Login required", "Please log in again.");
+        return;
+      }
 
-    if (!res.ok) {
-      Alert.alert("Failed", data.error || "Could not update favourite.");
-      return;
-    }
-
-    if (alreadyFavourite) {
-      setFavourites((prev) =>
-        prev.filter((s) => String(s.id) !== String(song.id))
+      const alreadyFavourite = favourites.some(
+        (f) => String(f.id) === String(song.id),
       );
-    } else {
-      setFavourites((prev) => [...prev, { ...song, size: undefined }]);
+
+      const res = await fetch(`${BACKEND_URL}favourites/${song.id}`, {
+        method: alreadyFavourite ? "DELETE" : "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await res.text();
+      let data: any = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {}
+
+      if (!res.ok) {
+        Alert.alert("Failed", data.error || "Could not update favourite.");
+        return;
+      }
+
+      if (alreadyFavourite) {
+        setFavourites((prev) =>
+          prev.filter((s) => String(s.id) !== String(song.id)),
+        );
+      } else {
+        setFavourites((prev) => [...prev, { ...song, size: undefined }]);
+      }
+    } catch (err) {
+      console.log("Error toggling favourite:", err);
+      Alert.alert("Error", "Something went wrong while updating favourite.");
     }
-  } catch (err) {
-    console.log("Error toggling favourite:", err);
-    Alert.alert("Error", "Something went wrong while updating favourite.");
-  }
-};
+  };
 
   const openFavouriteSongSheet = (song: Song) => {
     setSelectedSong(song);
     setSheetActions([
       {
-  icon: "heart-dislike",
-  label: "Remove from Favourites",
-  onPress: async () => {
-    await toggleFavourite(song);
-    Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
-  },
-  danger: true,
-},
+        icon: "heart-dislike",
+        label: "Remove from Favourites",
+        onPress: async () => {
+          await toggleFavourite(song);
+          Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
+        },
+        danger: true,
+      },
       {
         icon: "list",
         label: "Add to Playlist",
@@ -516,26 +518,26 @@ export default function PlaylistScreen() {
         danger: true,
       },
       {
-  icon: favourites.find((f) => String(f.id) === String(song.id))
-    ? "heart-dislike"
-    : "heart",
-  label: favourites.find((f) => String(f.id) === String(song.id))
-    ? "Remove from Favourites"
-    : "Add to Favourites",
-  onPress: () => {
-    const alreadyFavourite = favourites.find(
-      (f) => String(f.id) === String(song.id)
-    );
+        icon: favourites.find((f) => String(f.id) === String(song.id))
+          ? "heart-dislike"
+          : "heart",
+        label: favourites.find((f) => String(f.id) === String(song.id))
+          ? "Remove from Favourites"
+          : "Add to Favourites",
+        onPress: () => {
+          const alreadyFavourite = favourites.find(
+            (f) => String(f.id) === String(song.id),
+          );
 
-    toggleFavourite({ ...song, size: undefined });
+          toggleFavourite({ ...song, size: undefined });
 
-    if (alreadyFavourite) {
-      Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
-    } else {
-      Alert.alert("Added!", `"${song.title}" added to Favourites.`);
-    }
-  },
-},
+          if (alreadyFavourite) {
+            Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
+          } else {
+            Alert.alert("Added!", `"${song.title}" added to Favourites.`);
+          }
+        },
+      },
       {
         icon: "list",
         label: "Add to Playlist",
@@ -711,27 +713,27 @@ export default function PlaylistScreen() {
         onPress: () => removeSongFromPlaylist(playlist.id, song.id),
         danger: true,
       },
-     {
-  icon: favourites.find((f) => String(f.id) === String(song.id))
-    ? "heart-dislike"
-    : "heart",
-  label: favourites.find((f) => String(f.id) === String(song.id))
-    ? "Remove from Favourites"
-    : "Add to Favourites",
-  onPress: () => {
-    const alreadyFavourite = favourites.find(
-      (f) => String(f.id) === String(song.id)
-    );
+      {
+        icon: favourites.find((f) => String(f.id) === String(song.id))
+          ? "heart-dislike"
+          : "heart",
+        label: favourites.find((f) => String(f.id) === String(song.id))
+          ? "Remove from Favourites"
+          : "Add to Favourites",
+        onPress: () => {
+          const alreadyFavourite = favourites.find(
+            (f) => String(f.id) === String(song.id),
+          );
 
-    toggleFavourite(song);
+          toggleFavourite(song);
 
-    if (alreadyFavourite) {
-      Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
-    } else {
-      Alert.alert("Added!", `"${song.title}" added to Favourites.`);
-    }
-  },
-},
+          if (alreadyFavourite) {
+            Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
+          } else {
+            Alert.alert("Added!", `"${song.title}" added to Favourites.`);
+          }
+        },
+      },
       {
         icon: "share-social",
         label: "Share with Friend",
@@ -853,8 +855,8 @@ export default function PlaylistScreen() {
       )
     : favourites;
   const songsNotInFavourites = allSongsFromBackend.filter(
-  (s) => !favourites.find((f) => String(f.id) === String(s.id))
-);
+    (s) => !favourites.find((f) => String(f.id) === String(s.id)),
+  );
   const songsNotInPlaylist = selectedPlaylist
     ? allSongsFromBackend.filter(
         (s) =>
@@ -862,14 +864,13 @@ export default function PlaylistScreen() {
       )
     : [];
   if (loading) {
-  return (
-    <View style={styles.loaderContainer}>
-      <ActivityIndicator size="large" color={currentMood.colors[1]} />
-      <Text style={styles.loaderText}>Loading your library...</Text>
-    </View>
-  );
-}
-
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color={currentMood.colors[1]} />
+        <Text style={styles.loaderText}>Loading your library...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -878,17 +879,10 @@ export default function PlaylistScreen() {
         <Text style={styles.headerTitle}>My Library</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
+            onPress={() => router.push("/search")}
             style={styles.headerBtn}
-            onPress={() => {
-              setSearchVisible((v) => !v);
-              setSearchQuery("");
-            }}
           >
-            <Ionicons
-              name={searchVisible ? "close" : "search"}
-              size={20}
-              color="#fff"
-            />
+            <Feather name="search" size={20} color="white" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerBtn}
@@ -938,23 +932,23 @@ export default function PlaylistScreen() {
         {expanded === "favourites" && (
           <View style={styles.expandedSection}>
             <TouchableOpacity
-  style={styles.addSongBtn}
-  onPress={() => setAddSongToFavouritesVisible(true)}
->
-  <Ionicons
-    name="add-circle-outline"
-    size={16}
-    color={currentMood.colors[1]}
-  />
-  <Text
-    style={[
-      styles.addSongBtnText,
-      { color: currentMood.colors[1] },
-    ]}
-  >
-    Add Songs
-  </Text>
-</TouchableOpacity>
+              style={styles.addSongBtn}
+              onPress={() => setAddSongToFavouritesVisible(true)}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={16}
+                color={currentMood.colors[1]}
+              />
+              <Text
+                style={[
+                  styles.addSongBtnText,
+                  { color: currentMood.colors[1] },
+                ]}
+              >
+                Add Songs
+              </Text>
+            </TouchableOpacity>
             {filteredFavourites.length === 0 ? (
               <Text style={styles.emptyText}>No favourites yet</Text>
             ) : (
@@ -978,71 +972,17 @@ export default function PlaylistScreen() {
                     </Text>
                   </View>
                   <TouchableOpacity
-  onPress={() => toggleFavourite(song)}
-  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
->
-  <Ionicons
-    name="heart"
-    size={20}
-    color={currentMood.colors[1]}
-  />
-</TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => openFavouriteSongSheet(song)}
+                    onPress={() => toggleFavourite(song)}
                     hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   >
-                    <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+                    <Ionicons
+                      name="heart"
+                      size={20}
+                      color={currentMood.colors[1]}
+                    />
                   </TouchableOpacity>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        )}
-
-        {/* Downloads */}
-        <SectionHeader
-          icon={
-            <Ionicons
-              name="arrow-down-circle"
-              size={18}
-              color={currentMood.colors[2]}
-            />
-          }
-          label="Downloads"
-          count={downloads.length}
-          expanded={expanded === "downloads"}
-          onToggle={() => toggle("downloads")}
-          accentColor={currentMood.colors[2]}
-        />
-        {expanded === "downloads" && (
-          <View style={styles.expandedSection}>
-            {downloads.length === 0 ? (
-              <Text style={styles.emptyText}>No downloads</Text>
-            ) : (
-              downloads.map((song) => (
-                <TouchableOpacity
-                  key={song.id}
-                  style={styles.songRow}
-                  onPress={() => handleSongPress(song)}
-                  activeOpacity={0.7}
-                >
-                  <Image
-                    source={{ uri: song.cover }}
-                    style={styles.songCover}
-                  />
-                  <View style={styles.songInfo}>
-                    <Text style={styles.songTitle} numberOfLines={1}>
-                      {song.title}
-                    </Text>
-                    <Text style={styles.songArtist} numberOfLines={1}>
-                      {song.artist}
-                    </Text>
-                  </View>
-                  <View style={styles.sizeTag}>
-                    <Text style={styles.sizeText}>{song.size}</Text>
-                  </View>
                   <TouchableOpacity
-                    onPress={() => openDownloadSongSheet(song)}
+                    onPress={() => openFavouriteSongSheet(song)}
                     hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   >
                     <Ionicons name="ellipsis-vertical" size={18} color="#555" />
@@ -1486,58 +1426,61 @@ export default function PlaylistScreen() {
         </Pressable>
       </Modal>
       <Modal
-  visible={addSongToFavouritesVisible}
-  transparent
-  animationType="slide"
-  onRequestClose={() => setAddSongToFavouritesVisible(false)}
->
-  <Pressable
-    style={styles.modalOverlay}
-    onPress={() => setAddSongToFavouritesVisible(false)}
-  >
-    <Pressable
-      style={[styles.modalSheet, { maxHeight: "75%" }]}
-      onPress={() => {}}
-    >
-      <View style={styles.modalHandle} />
-      <Text style={styles.modalTitle}>Add Songs to Favourites</Text>
+        visible={addSongToFavouritesVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddSongToFavouritesVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setAddSongToFavouritesVisible(false)}
+        >
+          <Pressable
+            style={[styles.modalSheet, { maxHeight: "75%" }]}
+            onPress={() => {}}
+          >
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Add Songs to Favourites</Text>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {songsNotInFavourites.length === 0 ? (
-          <Text style={styles.emptyText}>
-            All songs are already in favourites!
-          </Text>
-        ) : (
-          songsNotInFavourites.map((song) => (
-            <TouchableOpacity
-              key={song.id}
-              style={styles.sheetAction}
-              onPress={async () => {
-                await toggleFavourite(song);
-                setAddSongToFavouritesVisible(false);
-                Alert.alert("Added!", `"${song.title}" added to Favourites.`);
-              }}
-            >
-              <Image
-                source={{ uri: song.cover }}
-                style={styles.sheetPlaylistThumb}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetActionLabel}>{song.title}</Text>
-                <Text style={styles.sheetActionSub}>{song.artist}</Text>
-              </View>
-              <Ionicons
-                name="add-circle-outline"
-                size={20}
-                color={currentMood.colors[1]}
-              />
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-    </Pressable>
-  </Pressable>
-</Modal>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {songsNotInFavourites.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  All songs are already in favourites!
+                </Text>
+              ) : (
+                songsNotInFavourites.map((song) => (
+                  <TouchableOpacity
+                    key={song.id}
+                    style={styles.sheetAction}
+                    onPress={async () => {
+                      await toggleFavourite(song);
+                      setAddSongToFavouritesVisible(false);
+                      Alert.alert(
+                        "Added!",
+                        `"${song.title}" added to Favourites.`,
+                      );
+                    }}
+                  >
+                    <Image
+                      source={{ uri: song.cover }}
+                      style={styles.sheetPlaylistThumb}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetActionLabel}>{song.title}</Text>
+                      <Text style={styles.sheetActionSub}>{song.artist}</Text>
+                    </View>
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={20}
+                      color={currentMood.colors[1]}
+                    />
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1545,16 +1488,16 @@ export default function PlaylistScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a1a" },
   loaderContainer: {
-  flex: 1,
-  backgroundColor: "#1a1a1a",
-  justifyContent: "center",
-  alignItems: "center",
-},
-loaderText: {
-  marginTop: 12,
-  color: "#aaa",
-  fontSize: 14,
-},
+    flex: 1,
+    backgroundColor: "#1a1a1a",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loaderText: {
+    marginTop: 12,
+    color: "#aaa",
+    fontSize: 14,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

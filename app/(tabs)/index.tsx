@@ -4,7 +4,7 @@ import MoodPlayerScreen from "@/components/index/MoodPlayerScreen";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { SpinWheel, WHEEL_RADIUS } from "@/components/index/SpinWheel";
 import { MOODS } from "@/constants/moods";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -226,8 +226,8 @@ export default function HomeScreen() {
               <Text style={styles.subtitle}>How's your mood today?</Text>
             </View>
 
-            <TouchableOpacity onPress={openSearch}>
-              <Ionicons name="search" size={22} color="#fff" />
+            <TouchableOpacity onPress={() => router.push("/search")}>
+              <Feather name="search" size={24} color="white" />
             </TouchableOpacity>
           </>
         )}

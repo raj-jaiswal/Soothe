@@ -44,7 +44,8 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "./withGradleFix.js"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -9,8 +9,7 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Modal, StyleSheet, View } from "react-native";
 
-function TabsWithPlayer() {
-  const { activeSong, closeSong } = useSongPlayer();
+export default function TabLayout() {
   const { currentMood } = useAppTheme();
 
   return (
@@ -28,26 +27,7 @@ function TabsWithPlayer() {
         <Tabs.Screen name="mic" />
         <Tabs.Screen name="search" />
       </Tabs>
-
-      <Modal
-        visible={!!activeSong}
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={closeSong}
-      >
-        {activeSong && (
-          <SongPlayerScreen song={activeSong} onBack={closeSong} />
-        )}
-      </Modal>
     </View>
-  );
-}
-
-export default function TabLayout() {
-  return (
-    <SongPlayerProvider>
-      <TabsWithPlayer />
-    </SongPlayerProvider>
   );
 }
 

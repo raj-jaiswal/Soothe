@@ -41,6 +41,7 @@ export interface Song {
   artist: string;
   duration?: number;
   coverUri?: string;
+  moods?: string;
 }
 
 interface Props {

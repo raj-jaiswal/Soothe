@@ -73,20 +73,28 @@ export default function HomeScreen() {
         const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
         const API_BASE = `${BACKEND_URL}`;
 
-        const res = await fetch(`${API_BASE}auth/verify-token`, {
+        let res = await fetch(`${API_BASE}auth/verify-token`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+
         if (!res.ok) {
           await AsyncStorage.removeItem("token");
           router.replace("/welcome");
           return;
         }
 
+        res = await fetch(`${BACKEND_URL}user/me`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         const data = await res.json();
-        setUsername(data.user.username);
+        setUsername(data.fullname.split(' ')[0]);
         setGreeting(getGreeting());
       } catch (err) {
         console.log("Auth check failed:", err);

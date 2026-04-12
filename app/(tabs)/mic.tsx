@@ -1,6 +1,6 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   StyleSheet,
@@ -8,15 +8,19 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Alert
 } from "react-native";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BAR_COUNT = 11;
 
 export default function MicScreen() {
   const router = useRouter();
-
   const navigation = useNavigation();
+
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // 🔥 Animated values for bars
   const barAnims = useRef(
@@ -46,6 +50,59 @@ export default function MicScreen() {
     animateBars();
   }, []);
 
+  const handleSearchMood = async () => {
+    if (!text.trim()) return;
+
+    setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      
+      let backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || "http://192.168.1.100:3000";
+      backendUrl = backendUrl.replace(/\/+$/, "");
+      if (backendUrl.endsWith("/api")) {
+        backendUrl = backendUrl.slice(0, -4);
+      }
+
+      console.log("Fetching from:", `${backendUrl}/api/songs/suggest`);
+
+      const response = await fetch(`${backendUrl}/api/songs/suggest`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ text })
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error(`Failed to parse JSON response. Status: ${response.status}`);
+      }
+      
+      if (response.ok) {
+        // 🔥 Successfully found songs! Navigate to the new Results page
+        router.push({
+          pathname: "/mood-results",
+          params: {
+            songs: JSON.stringify(data.suggestions),
+            moodScores: JSON.stringify(data.moodScores || {}),
+            moodText: text
+          }
+        });
+        setText(""); // Clear input box
+      } else {
+        Alert.alert("Error", data.error || "Failed to find songs");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Could not connect to the server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Bar */}
@@ -69,10 +126,20 @@ export default function MicScreen() {
           placeholderTextColor="#777"
           style={styles.input}
           multiline
+          value={text}
+          onChangeText={setText}
         />
 
-        <TouchableOpacity style={styles.sendBtn}>
-          <Text style={styles.sendText}>Send</Text>
+        <TouchableOpacity 
+          style={styles.sendBtn}
+          onPress={handleSearchMood}
+          disabled={loading}
+        >
+          {loading ? (
+             <ActivityIndicator color="#000" />
+          ) : (
+             <Text style={styles.sendText}>Send</Text>
+          )}
         </TouchableOpacity>
       </View>
 

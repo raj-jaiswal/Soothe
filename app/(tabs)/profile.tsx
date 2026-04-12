@@ -1,6 +1,7 @@
 import { useAppTheme } from "@/components/context/ThemeContext";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
-import { AntDesign, Feather, MaterialIcons } from "@expo/vector-icons";
+import { PlayEventEmitter } from "@/utils/PlayEventEmitter";
+import { AntDesign, Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -28,6 +29,13 @@ import Svg, {
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
 type Mood = { label: string; count: number; angleDeg: number };
+
+/** Deterministic album art from Picsum, seeded from songId */
+function getAlbumArt(songId: string, index: number) {
+  const numericId = String(songId ?? "").replace(/\D/g, "") || String(index);
+  const seed = (parseInt(numericId, 10) % 200) + 50;
+  return `https://picsum.photos/seed/${seed}/80/80`;
+}
 
 const BASE_MOODS = [
   { label: "Love", angleDeg: 315 },
@@ -173,25 +181,49 @@ export default function MusicProfile() {
   );
 
   const handlePlaySong = (song: any) => {
-    openSong(song);
-
-    lastPlayedRef.current = Date.now();
-    setTotalStreams((curr) => curr + 1);
-
-    setTopSongs((currentTop) => {
-      const idx = currentTop.findIndex((s) => s.id === song.id);
-      if (idx >= 0) {
-        const newTop = [...currentTop];
-        newTop[idx] = { ...newTop[idx], count: (newTop[idx].count || 0) + 1 };
-        return newTop.sort((a, b) => b.count - a.count);
-      }
-      return currentTop;
+    openSong({
+      ...song,
+      coverUri: getAlbumArt(song.id, topSongs.findIndex(s => s.id === song.id))
     });
   };
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 160);
     return () => clearTimeout(t);
+  }, []);
+
+  // 🔥 Subscribe to global play events — increment counter instantly from any screen
+  useEffect(() => {
+    const unsub = PlayEventEmitter.subscribe((song) => {
+      // 1. Instant total counter increment
+      setTotalStreams((n) => n + 1);
+
+      // 2. Instant Mood Wheel update
+      if (song.moods) {
+        const songMoods = song.moods.toLowerCase();
+        setMoods((currentMoods) => {
+          return currentMoods.map((m) => {
+            if (songMoods.includes(m.label.toLowerCase())) {
+              return { ...m, count: m.count + 1 };
+            }
+            return m;
+          });
+        });
+      }
+
+      // 3. Instant Top Songs update
+      setTopSongs((currentTop) => {
+        const idx = currentTop.findIndex((s) => s.id === song.id);
+        if (idx >= 0) {
+          const newTop = [...currentTop];
+          const newCount = (newTop[idx].count || 0) + 1;
+          newTop[idx] = { ...newTop[idx], count: newCount };
+          return newTop.sort((a, b) => (b.count || 0) - (a.count || 0));
+        }
+        return currentTop;
+      });
+    });
+    return unsub;
   }, []);
 
   const handleLogout = async () => {
@@ -304,11 +336,14 @@ export default function MusicProfile() {
           <View style={styles.songsSection}>
             <Text style={styles.sectionTitle}>Your Top Songs</Text>
             <View style={{ height: 12 }} />
-            {topSongs.map((song) => (
+            {topSongs.map((song, idx) => (
               <SongRow
                 key={song.id}
+                songId={song.id || ""}
+                index={idx}
                 title={song.title}
                 subtitle={song.artist}
+                isActive={activeSong?.id === song.id}
                 onPress={() => handlePlaySong(song)}
               />
             ))}
@@ -528,23 +563,47 @@ function MoodWheel({
 }
 
 function SongRow({
+  songId,
+  index,
   title,
   subtitle,
+  isActive,
   onPress,
 }: {
+  songId?: string;
+  index?: number;
   title: string;
   subtitle?: string;
+  isActive?: boolean;
   onPress?: () => void;
 }) {
+  const artUri = getAlbumArt(songId ?? "", index ?? 0);
   return (
-    <Pressable style={styles.songRow} onPress={onPress}>
-      <View style={styles.albumCircle}>
-        <Text>🎵</Text>
+    <Pressable
+      style={[styles.songRow, isActive && styles.songRowActive]}
+      onPress={onPress}
+    >
+      <View style={styles.artWrap}>
+        <Image source={{ uri: artUri }} style={styles.albumArt} resizeMode="cover" />
+        {isActive && (
+          <View style={styles.playOverlay}>
+            <Ionicons name="volume-high" size={14} color="#fff" />
+          </View>
+        )}
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.songTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.songSubtitle}>{subtitle}</Text> : null}
+        <Text style={[styles.songTitle, isActive && { color: "#c084fc" }]} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={styles.songSubtitle} numberOfLines={1}>{subtitle}</Text>
+        ) : null}
       </View>
+      <Ionicons
+        name={isActive ? "pause-circle" : "play-circle-outline"}
+        size={26}
+        color={isActive ? "#c084fc" : "rgba(255,255,255,0.2)"}
+      />
     </Pressable>
   );
 }
@@ -665,21 +724,25 @@ const styles = StyleSheet.create({
   songRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
+    gap: 12,
   },
-  albumCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#2a2a2a",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.06)",
+  songRowActive: {
+    backgroundColor: "rgba(192,132,252,0.08)",
+    borderColor: "rgba(192,132,252,0.25)",
   },
-  songTitle: { color: "#e2e2e2", fontSize: 15, fontWeight: "600" },
-  songSubtitle: { color: "#9a9a9a", fontSize: 12, marginTop: 4 },
+  artWrap: { width: 52, height: 52, position: "relative" },
+  albumArt: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#2a2a2a" },
+  playOverlay: {
+    position: "absolute", inset: 0, borderRadius: 12,
+    backgroundColor: "rgba(192,132,252,0.55)",
+    alignItems: "center", justifyContent: "center",
+  },
+  songTitle: { color: "#e2e2e2", fontSize: 14, fontWeight: "600" },
+  songSubtitle: { color: "#9a9a9a", fontSize: 12, marginTop: 3 },
 });

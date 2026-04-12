@@ -1,24 +1,33 @@
 import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
+/** Deterministic album art from Picsum, seeded from songId */
+function getAlbumArt(songId: string, index: number) {
+  const numericId = String(songId ?? "").replace(/\D/g, "") || String(index);
+  const seed = (parseInt(numericId, 10) % 200) + 50;
+  return `https://picsum.photos/seed/${seed}/80/80`;
+}
+
 export default function HistoryPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { openSong } = useSongPlayer();
+  const { openSong, activeSong } = useSongPlayer();
   const router = useRouter();
 
   const fetchHistory = useCallback(async () => {
@@ -50,14 +59,26 @@ export default function HistoryPage() {
     }, [fetchHistory])
   );
 
+  const handlePlay = (song: any) => {
+    const songId = song.songId || song.id;
+    openSong({
+      id: songId,
+      title: song.name || song.title,
+      artist: song.artist,
+      duration: song.duration,
+      coverUri: getAlbumArt(songId, history.indexOf(song)),
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="arrow-left" size={24} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>Listening History</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       {isLoading ? (
@@ -71,52 +92,81 @@ export default function HistoryPage() {
         >
           {history.length > 0 ? (
             <View style={styles.songsSection}>
-              {history.map((song, i) => (
-                <SongRow
-                  key={`history-${song.songId || song.id}-${i}`}
-                  title={song.name || song.title}
-                  subtitle={song.artist}
-                  onPress={() =>
-                    openSong({
-                      id: song.songId || song.id,
-                      title: song.name || song.title,
-                      artist: song.artist,
-                      duration: song.duration,
-                    })
-                  }
-                />
-              ))}
+              {history.map((song, i) => {
+                const songId = song.songId || song.id || "";
+                const title = song.name || song.title || "Unknown";
+                const artist = song.artist || "";
+                const isActive = activeSong?.id === songId;
+
+                return (
+                  <TouchableOpacity
+                    key={`history-${songId}-${i}`}
+                    style={[styles.songRow, isActive && styles.songRowActive]}
+                    onPress={() => handlePlay(song)}
+                    activeOpacity={0.75}
+                  >
+                    {/* Album art */}
+                    <View style={styles.artWrap}>
+                      <Image
+                        source={{ uri: getAlbumArt(songId, i) }}
+                        style={styles.albumArt}
+                        resizeMode="cover"
+                      />
+                      {isActive && (
+                        <View style={styles.playOverlay}>
+                          <Ionicons name="volume-high" size={16} color="#fff" />
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Text */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.songTitle,
+                          isActive && { color: "#c084fc" },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {title}
+                      </Text>
+                      <View
+                        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                      >
+                        {artist ? (
+                          <Text style={styles.songSubtitle} numberOfLines={1}>
+                            {artist}
+                          </Text>
+                        ) : null}
+                        {song.playCount > 1 && (
+                          <View style={styles.countBadge}>
+                            <Text style={styles.countText}>
+                              {song.playCount} plays
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Play icon */}
+                    <Ionicons
+                      name={isActive ? "pause-circle" : "play-circle-outline"}
+                      size={28}
+                      color={isActive ? "#c084fc" : "rgba(255,255,255,0.2)"}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ) : (
             <View style={styles.emptyState}>
+              <Ionicons name="musical-notes-outline" size={48} color="#444" />
               <Text style={styles.emptyText}>No listening history yet.</Text>
             </View>
           )}
         </ScrollView>
       )}
     </SafeAreaView>
-  );
-}
-
-function SongRow({
-  title,
-  subtitle,
-  onPress,
-}: {
-  title: string;
-  subtitle?: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable style={styles.songRow} onPress={onPress}>
-      <View style={styles.albumCircle}>
-        <Text>🎵</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.songTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.songSubtitle}>{subtitle}</Text> : null}
-      </View>
-    </Pressable>
   );
 }
 
@@ -131,7 +181,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.03)",
+    borderBottomColor: "rgba(255,255,255,0.05)",
   },
   backBtn: {
     padding: 8,
@@ -140,13 +190,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
   scrollContent: {
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 60,
     alignItems: "center",
     width: "100%",
   },
@@ -154,34 +204,50 @@ const styles = StyleSheet.create({
   songRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     backgroundColor: "#1c1c1c",
-    borderRadius: 18,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.03)",
+    borderColor: "rgba(255,255,255,0.04)",
+    gap: 12,
   },
-  albumCircle: {
+  songRowActive: {
+    borderColor: "rgba(192,132,252,0.3)",
+    backgroundColor: "#1e1828",
+  },
+  artWrap: { width: 52, height: 52, position: "relative" },
+  albumArt: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: 12,
     backgroundColor: "#2a2a2a",
+  },
+  playOverlay: {
+    position: "absolute",
+    inset: 0,
+    borderRadius: 12,
+    backgroundColor: "rgba(192,132,252,0.55)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
   },
-  songTitle: { color: "#f0f0f0", fontSize: 16, fontWeight: "700", marginBottom: 2 },
-  songSubtitle: { color: "#a0a0a0", fontSize: 13, fontWeight: "500" },
-  emptyState: {
-    marginTop: 60,
-    alignItems: "center",
+  songTitle: { color: "#f0f0f0", fontSize: 15, fontWeight: "700", marginBottom: 2 },
+  songSubtitle: { color: "#888", fontSize: 12, fontWeight: "500" },
+  emptyState: { marginTop: 80, alignItems: "center", gap: 12 },
+  emptyText: { color: "#666", fontSize: 15, fontWeight: "500" },
+  countBadge: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.1)",
   },
-  emptyText: {
-    color: "#888",
-    fontSize: 16,
-    fontWeight: "500",
+  countText: {
+    color: "#aaa",
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
 });

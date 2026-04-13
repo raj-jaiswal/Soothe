@@ -1390,7 +1390,7 @@ export default function PlaylistScreen() {
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Add Songs</Text>
             <Text style={styles.modalSubtitle}>
-              to "{selectedPlaylist?.name}"
+              to {selectedPlaylist?.name}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               {songsNotInPlaylist.length === 0 ? (

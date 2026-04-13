@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
+import SongActionsMenu from "./SongActionsMenu";
+
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 const API_BASE = `${BACKEND_URL}`;
@@ -99,6 +101,8 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [realDuration, setRealDuration] = useState(song.duration || 0);
+  const [actionsVisible, setActionsVisible] = useState(false);
+
 
   const isSeeking = useRef(false);
   const seekTargetTime = useRef(0);
@@ -214,7 +218,6 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           { uri: streamData.streamUrl },
           {
             shouldPlay: true,
-            isMeteringEnabled: true,
             progressUpdateIntervalMillis: 100,
           },
           (status: AVPlaybackStatus) => {
@@ -333,9 +336,10 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
         <TouchableOpacity onPress={onBack} style={styles.iconBtn}>
           <Ionicons name="chevron-back" size={26} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn}>
-          <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
-        </TouchableOpacity>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => setActionsVisible(true)}>
+  <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
+</TouchableOpacity>
+
       </View>
 
       <View
@@ -532,6 +536,12 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           </TouchableOpacity>
         </View>
       </View>
+      <SongActionsMenu
+  visible={actionsVisible}
+  song={song}
+  onClose={() => setActionsVisible(false)}
+/>
+
     </SafeAreaView>
   );
 }

@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/components/context/ThemeContext";
+import ShareWithFriendMenu from "@/components/index/ShareWithFriendMenu";
 import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -295,9 +296,13 @@ export default function PlaylistScreen() {
   const [sortVisible, setSortVisible] = useState(false);
   const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
   const [addSongToPlaylistVisible, setAddSongToPlaylistVisible] =
-    useState(false);
-  const [addSongToFavouritesVisible, setAddSongToFavouritesVisible] =
-    useState(false);
+  useState(false);
+const [addSongToFavouritesVisible, setAddSongToFavouritesVisible] =
+  useState(false);
+const [shareVisible, setShareVisible] = useState(false);
+const [shareTitle, setShareTitle] = useState("");
+const [shareMessage, setShareMessage] = useState("");
+
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
@@ -497,52 +502,57 @@ export default function PlaylistScreen() {
     setDownloads((prev) => prev.filter((s) => s.id !== id));
 
   const openDownloadSongSheet = (song: Song) => {
-    setSelectedSong(song);
-    setSheetActions([
-      {
-        icon: "trash",
-        label: "Remove Download",
-        onPress: () => removeDownload(song.id),
-        danger: true,
-      },
-      {
-        icon: favourites.find((f) => String(f.id) === String(song.id))
-          ? "heart-dislike"
-          : "heart",
-        label: favourites.find((f) => String(f.id) === String(song.id))
-          ? "Remove from Favourites"
-          : "Add to Favourites",
-        onPress: () => {
-          const alreadyFavourite = favourites.find(
-            (f) => String(f.id) === String(song.id),
-          );
+  setSelectedSong(song);
+  setSheetActions([
+    {
+      icon: "trash",
+      label: "Remove Download",
+      onPress: () => removeDownload(song.id),
+      danger: true,
+    },
+    {
+      icon: favourites.find((f) => String(f.id) === String(song.id))
+        ? "heart-dislike"
+        : "heart",
+      label: favourites.find((f) => String(f.id) === String(song.id))
+        ? "Remove from Favourites"
+        : "Add to Favourites",
+      onPress: () => {
+        const alreadyFavourite = favourites.find(
+          (f) => String(f.id) === String(song.id),
+        );
 
-          toggleFavourite({ ...song, size: undefined });
+        toggleFavourite({ ...song, size: undefined });
 
-          if (alreadyFavourite) {
-            Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
-          } else {
-            Alert.alert("Added!", `"${song.title}" added to Favourites.`);
-          }
-        },
+        if (alreadyFavourite) {
+          Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
+        } else {
+          Alert.alert("Added!", `"${song.title}" added to Favourites.`);
+        }
       },
-      {
-        icon: "list",
-        label: "Add to Playlist",
-        onPress: () => {
-          setSelectedSong(song);
-          setAddToPlaylistVisible(true);
-        },
+    },
+    {
+      icon: "list",
+      label: "Add to Playlist",
+      onPress: () => {
+        setSelectedSong(song);
+        setAddToPlaylistVisible(true);
       },
-      {
-        icon: "share-social",
-        label: "Share with Friend",
-        onPress: () =>
-          Alert.alert("Shared!", `"${song.title}" shared to chat.`),
+    },
+    {
+      icon: "share-social",
+      label: "Share with Friend",
+      onPress: () => {
+        setShareTitle("Share Song");
+        setShareMessage(
+          `Listen to "${song.title}" by ${song.artist} on Soothe.`,
+        );
+        setShareVisible(true);
       },
-    ]);
-    setSheetVisible(true);
-  };
+    },
+  ]);
+  setSheetVisible(true);
+};
 
   const togglePin = (id: string) =>
     setPlaylists((prev) =>
@@ -602,25 +612,114 @@ export default function PlaylistScreen() {
     ]);
   };
 
-  const renamePlaylist = () => {
-    if (!renameText.trim() || !selectedPlaylist) return;
+  const renamePlaylist = async () => {
+  const trimmedName = renameText.trim();
+  if (!trimmedName || !selectedPlaylist) return;
+
+  try {
+    const token = await getToken();
+    if (!token) {
+      Alert.alert("Login required", "Please log in again.");
+      return;
+    }
+
+    const res = await fetch(
+      `${BACKEND_URL}personal-playlists/${selectedPlaylist.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ nameOfPlaylist: trimmedName }),
+      },
+    );
+
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {}
+
+    if (!res.ok) {
+      Alert.alert("Failed", data.error || "Could not rename playlist.");
+      return;
+    }
+
     setPlaylists((prev) =>
       prev.map((p) =>
-        p.id === selectedPlaylist.id ? { ...p, name: renameText.trim() } : p,
+        p.id === selectedPlaylist.id ? { ...p, name: trimmedName } : p,
       ),
     );
+    setSelectedPlaylist((prev) =>
+      prev ? { ...prev, name: trimmedName } : prev,
+    );
     setRenameVisible(false);
-  };
+    Alert.alert("Renamed", "Playlist renamed successfully.");
+  } catch (err) {
+    console.log("Error renaming playlist:", err);
+    Alert.alert("Error", "Something went wrong while renaming.");
+  }
+};
 
-  const removeSongFromPlaylist = (playlistId: string, songId: string) => {
+const removeSongFromPlaylist = async (playlistId: string, songId: string) => {
+  try {
+    const token = await getToken();
+    if (!token) {
+      Alert.alert("Login required", "Please log in again.");
+      return;
+    }
+
+    const res = await fetch(
+      `${BACKEND_URL}personal-playlists/${playlistId}/songs/${encodeURIComponent(
+        songId,
+      )}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {}
+
+    if (!res.ok) {
+      Alert.alert("Failed", data.error || "Could not remove song.");
+      return;
+    }
+
     setPlaylists((prev) =>
       prev.map((p) =>
         p.id === playlistId
-          ? { ...p, songs: p.songs.filter((s) => s.id !== songId) }
+          ? {
+              ...p,
+              songs: p.songs.filter((s) => String(s.id) !== String(songId)),
+            }
           : p,
       ),
     );
-  };
+    setSelectedPlaylist((prev) =>
+      prev && prev.id === playlistId
+        ? {
+            ...prev,
+            songs: prev.songs.filter(
+              (s) => String(s.id) !== String(songId),
+            ),
+          }
+        : prev,
+    );
+    Alert.alert("Removed", "Song removed from playlist.");
+  } catch (err) {
+    console.log("Error removing song from playlist:", err);
+    Alert.alert("Error", "Something went wrong while removing the song.");
+  }
+};
+
 
   const addSongToPlaylist = async (playlistId: string, song: Song) => {
     const playlist = playlists.find((p) => p.id === playlistId);
@@ -692,79 +791,98 @@ export default function PlaylistScreen() {
     }
   };
   const openPlaylistSongSheet = (playlist: Playlist, song: Song) => {
-    setSelectedSong(song);
-    setSelectedPlaylist(playlist);
-    setSheetActions([
-      {
-        icon: "remove-circle",
-        label: "Remove from Playlist",
-        onPress: () => removeSongFromPlaylist(playlist.id, song.id),
-        danger: true,
-      },
-      {
-        icon: favourites.find((f) => String(f.id) === String(song.id))
-          ? "heart-dislike"
-          : "heart",
-        label: favourites.find((f) => String(f.id) === String(song.id))
-          ? "Remove from Favourites"
-          : "Add to Favourites",
-        onPress: () => {
-          const alreadyFavourite = favourites.find(
-            (f) => String(f.id) === String(song.id),
-          );
+  setSelectedSong(song);
+  setSelectedPlaylist(playlist);
+  setSheetActions([
+    {
+      icon: "remove-circle",
+      label: "Remove from Playlist",
+      onPress: () => removeSongFromPlaylist(playlist.id, song.id),
+      danger: true,
+    },
+    {
+      icon: favourites.find((f) => String(f.id) === String(song.id))
+        ? "heart-dislike"
+        : "heart",
+      label: favourites.find((f) => String(f.id) === String(song.id))
+        ? "Remove from Favourites"
+        : "Add to Favourites",
+      onPress: () => {
+        const alreadyFavourite = favourites.find(
+          (f) => String(f.id) === String(song.id),
+        );
 
-          toggleFavourite(song);
+        toggleFavourite(song);
 
-          if (alreadyFavourite) {
-            Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
-          } else {
-            Alert.alert("Added!", `"${song.title}" added to Favourites.`);
-          }
-        },
+        if (alreadyFavourite) {
+          Alert.alert("Removed!", `"${song.title}" removed from Favourites.`);
+        } else {
+          Alert.alert("Added!", `"${song.title}" added to Favourites.`);
+        }
       },
-      {
-        icon: "share-social",
-        label: "Share with Friend",
-        onPress: () =>
-          Alert.alert("Shared!", `"${song.title}" shared to chat.`),
-      },
-    ]);
-    setSheetVisible(true);
-  };
+    },
+    {
+  icon: "share-social",
+  label: "Share with Friend",
+  onPress: () => {
+    setShareTitle("Share Song");
+    setShareMessage(
+      JSON.stringify({
+        type: "song",
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        cover: song.cover,
+      }),
+    );
+    setShareVisible(true);
+  },
+},
+
+  ]);
+  setSheetVisible(true);
+};
+
 
   const openPlaylistSheet = (playlist: Playlist) => {
-    setSelectedPlaylist(playlist);
-    setSheetActions([
-      {
-        icon: "pin",
-        label: playlist.pinned ? "Unpin Playlist" : "Pin to Top",
-        onPress: () => togglePin(playlist.id),
+  setSelectedPlaylist(playlist);
+
+  setSelectedSong({
+    id: playlist.id,
+    title: playlist.name,
+    artist: `${playlist.songs.length} songs · ${playlist.mood}`,
+    cover: playlist.cover,
+  });
+
+  setSheetActions([
+    {
+      icon: "musical-notes",
+      label: "Add Songs",
+      onPress: () => {
+        setSelectedPlaylist(playlist);
+        setAddSongToPlaylistVisible(true);
       },
-      {
-        icon: "musical-notes",
-        label: "Add Songs",
-        onPress: () => {
-          setSelectedPlaylist(playlist);
-          setAddSongToPlaylistVisible(true);
-        },
+    },
+    {
+      icon: "pencil",
+      label: "Rename Playlist",
+      onPress: () => {
+        setRenameText(playlist.name);
+        setRenameVisible(true);
       },
-      {
-        icon: "pencil",
-        label: "Rename Playlist",
-        onPress: () => {
-          setRenameText(playlist.name);
-          setRenameVisible(true);
-        },
-      },
-      {
-        icon: "trash",
-        label: "Delete Playlist",
-        onPress: () => deletePlaylist(playlist.id),
-        danger: true,
-      },
-    ]);
-    setSheetVisible(true);
-  };
+    },
+    
+    {
+      icon: "trash",
+      label: "Delete Playlist",
+      onPress: () => deletePlaylist(playlist.id),
+      danger: true,
+    },
+  ]);
+
+  setSheetVisible(true);
+};
+
 
   const handleCreate = async () => {
     if (!newPlaylistName.trim()) return;
@@ -1149,6 +1267,14 @@ export default function PlaylistScreen() {
         actions={sheetActions}
         onClose={() => setSheetVisible(false)}
       />
+
+      <ShareWithFriendMenu
+  visible={shareVisible}
+  title={shareTitle}
+  messageText={shareMessage}
+  onClose={() => setShareVisible(false)}
+/>
+
 
       {/* Create Playlist Modal */}
       <Modal

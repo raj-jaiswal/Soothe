@@ -23,6 +23,21 @@ import io, { Socket } from "socket.io-client";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
+function formatChatPreview(message: string) {
+  try {
+    const data = JSON.parse(message);
+
+    if (data?.type === "song") {
+      return "Shared a song";
+    }
+
+    return message;
+  } catch {
+    return message;
+  }
+}
+
+
 export default function Chats() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -62,8 +77,11 @@ export default function Chats() {
               .sort()
               .join("_");
             const bytes = CryptoJS.AES.decrypt(chat.message, sharedKey);
-            chat.message =
-              bytes.toString(CryptoJS.enc.Utf8) || "Encrypted Message";
+            const decryptedText =
+  bytes.toString(CryptoJS.enc.Utf8) || "Encrypted Message";
+
+chat.message = formatChatPreview(decryptedText);
+
           } catch (e) {
             chat.message = "Encrypted Message";
           }
@@ -126,8 +144,9 @@ export default function Chats() {
               }
 
               // Update the chat object data
-              chat.message = decryptedText;
-              chat.timeStamp = msgRecord.timeStamp;
+              chat.message = formatChatPreview(decryptedText);
+chat.timeStamp = msgRecord.timeStamp;
+
 
               // Only mark as unread if the message wasn't sent by us
               if (msgRecord.senderUsername !== result.username) {

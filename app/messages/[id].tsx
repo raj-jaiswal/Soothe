@@ -1,6 +1,7 @@
 import "react-native-get-random-values";
 
 import { useAppTheme } from "@/components/context/ThemeContext";
+import { useSongPlayer } from "@/components/index/SongPlayerContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CryptoJS from "crypto-js";
@@ -24,12 +25,21 @@ import io, { Socket } from "socket.io-client";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
+type SharedSong = {
+  id: string;
+  title: string;
+  artist: string;
+  cover?: string;
+};
+
 type Message = {
   id: string;
   text: string;
+  sharedSong?: SharedSong | null;
   sender: "me" | "them";
   timeStamp: number;
 };
+
 
 function getInitials(name?: string) {
   if (!name) return "?";
@@ -40,6 +50,23 @@ function getInitials(name?: string) {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+function parseSharedSong(text: string): SharedSong | null {
+  try {
+    const data = JSON.parse(text);
+    if (data?.type !== "song" || !data.id || !data.title) return null;
+
+    return {
+      id: String(data.id),
+      title: String(data.title),
+      artist: String(data.artist || "Unknown Artist"),
+      cover: data.cover ? String(data.cover) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 
 export default function MessagePage() {
   const {
@@ -52,6 +79,8 @@ export default function MessagePage() {
   const flatListRef = useRef<FlatList>(null);
 
   const { currentMood } = useAppTheme();
+  const { openSong } = useSongPlayer();
+
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
@@ -89,12 +118,16 @@ export default function MessagePage() {
               console.error("Decryption failed", e);
             }
 
-            return {
-              id: msg.SK,
-              text: decryptedText,
-              sender: msg.senderUsername === decoded.username ? "me" : "them",
-              timeStamp: msg.timeStamp,
-            };
+            const sharedSong = parseSharedSong(decryptedText);
+
+return {
+  id: msg.SK,
+  text: decryptedText,
+  sharedSong,
+  sender: msg.senderUsername === decoded.username ? "me" : "them",
+  timeStamp: msg.timeStamp,
+};
+
           });
           setMessages(history);
         }
@@ -121,12 +154,16 @@ export default function MessagePage() {
           console.error("Decryption failed", e);
         }
 
-        const newMsg: Message = {
-          id: msgRecord.SK,
-          text: decryptedText,
-          sender: msgRecord.senderUsername === decoded.username ? "me" : "them",
-          timeStamp: msgRecord.timeStamp,
-        };
+        const sharedSong = parseSharedSong(decryptedText);
+
+const newMsg: Message = {
+  id: msgRecord.SK,
+  text: decryptedText,
+  sharedSong,
+  sender: msgRecord.senderUsername === decoded.username ? "me" : "them",
+  timeStamp: msgRecord.timeStamp,
+};
+
 
         setMessages((prev) => {
           if (prev.some((m) => m.id === newMsg.id)) return prev;
@@ -166,7 +203,62 @@ export default function MessagePage() {
     setInputText("");
   };
 
-  const renderItem = ({ item }: { item: Message }) => (
+  const renderItem = ({ item }: { item: Message }) => {
+  if (item.sharedSong) {
+    return (
+      <TouchableOpacity
+        style={[
+          styles.messageBubble,
+          styles.sharedSongBubble,
+          item.sender === "me"
+            ? [styles.myMessage, { backgroundColor: currentMood.colors[1] }]
+            : styles.theirMessage,
+        ]}
+        onPress={() =>
+          item.sharedSong &&
+          openSong({
+            id: item.sharedSong.id,
+            title: item.sharedSong.title,
+            artist: item.sharedSong.artist,
+            coverUri: item.sharedSong.cover,
+            duration: 240,
+          })
+        }
+        activeOpacity={0.8}
+      >
+        <View style={styles.sharedSongHeader}>
+          <Ionicons name="musical-notes" size={16} color="#fff" />
+          <Text style={styles.sharedSongLabel}>Shared Song</Text>
+        </View>
+
+        <View style={styles.sharedSongContent}>
+          {item.sharedSong.cover ? (
+            <Image
+              source={{ uri: item.sharedSong.cover }}
+              style={styles.sharedSongCover}
+            />
+          ) : (
+            <View style={styles.sharedSongCoverFallback}>
+              <Ionicons name="musical-note" size={18} color="#aaa" />
+            </View>
+          )}
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sharedSongTitle} numberOfLines={1}>
+              {item.sharedSong.title}
+            </Text>
+            <Text style={styles.sharedSongArtist} numberOfLines={1}>
+              {item.sharedSong.artist}
+            </Text>
+          </View>
+
+          <Ionicons name="play-circle" size={24} color="#fff" />
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
     <View
       style={[
         styles.messageBubble,
@@ -178,6 +270,8 @@ export default function MessagePage() {
       <Text style={styles.messageText}>{item.text}</Text>
     </View>
   );
+};
+
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -318,6 +412,51 @@ const styles = StyleSheet.create({
   myMessage: { alignSelf: "flex-end" },
   theirMessage: { alignSelf: "flex-start", backgroundColor: "#333" },
   messageText: { color: "white", fontSize: 15 },
+  sharedSongBubble: {
+  width: "78%",
+},
+sharedSongHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+  marginBottom: 10,
+},
+sharedSongLabel: {
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: "700",
+  opacity: 0.85,
+},
+sharedSongContent: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+},
+sharedSongCover: {
+  width: 44,
+  height: 44,
+  borderRadius: 8,
+  backgroundColor: "#2A2A2A",
+},
+sharedSongCoverFallback: {
+  width: 44,
+  height: 44,
+  borderRadius: 8,
+  backgroundColor: "rgba(0,0,0,0.18)",
+  alignItems: "center",
+  justifyContent: "center",
+},
+sharedSongTitle: {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: "700",
+},
+sharedSongArtist: {
+  color: "rgba(255,255,255,0.75)",
+  fontSize: 13,
+  marginTop: 2,
+},
+
 
   chatBox: {
     flexDirection: "row",

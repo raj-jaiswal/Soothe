@@ -21,7 +21,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -735,7 +735,7 @@ const ExploreScreen: React.FC = () => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Explore</Text>
-            <Text style={styles.subGreeting}>What's new today 🎵</Text>
+            <Text style={styles.subGreeting}>What's new today</Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/search")}>
             <Feather name="search" size={24} color="white" />

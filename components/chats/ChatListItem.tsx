@@ -32,18 +32,20 @@ export default function ChatListItem({ chat }: { chat: any }) {
       </View>
 
       <View style={styles.textContainer}>
-        <Text style={styles.name}>{chat.name}</Text>
-        {/* Limit preview text length */}
-        <Text style={styles.message} numberOfLines={1}>
+        {/* Make name and message bold if unread */}
+        <Text style={[styles.name, chat.isUnread && styles.unreadTextBold]}>
+          {chat.name}
+        </Text>
+        <Text
+          style={[styles.message, chat.isUnread && styles.unreadTextBold]}
+          numberOfLines={1}
+        >
           {chat.message}
         </Text>
       </View>
 
-      {chat.unread > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{chat.unread}</Text>
-        </View>
-      )}
+      {/* Render a dot instead of a number for frontend-only tracking */}
+      {chat.isUnread && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 }
@@ -53,26 +55,30 @@ const styles = StyleSheet.create({
   textContainer: { flex: 1 },
   name: { color: "white", fontSize: 16, fontWeight: "600" },
   message: { color: "#aaa", fontSize: 13, marginTop: 2 },
-  badge: {
-    backgroundColor: "white",
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  badgeText: { fontSize: 12, fontWeight: "600" },
 
-  // New Avatar Styles adapted from profile.tsx
+  // New styles for unread states
+  unreadTextBold: {
+    fontWeight: "bold",
+    color: "white", // Brighten the preview text if it's unread
+  },
+  unreadDot: {
+    backgroundColor: "#7B2FF7", // Matches your loading indicator theme
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: 10,
+  },
+
+  // Avatar Styles
   avatarInner: {
     width: 50,
     height: 50,
-    borderRadius: 25, // Half of width/height to make it a perfect circle
+    borderRadius: 25,
     marginRight: 14,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#333", // Fallback background color
+    backgroundColor: "#333",
   },
   avatarInnerImage: {
     width: "100%",
@@ -80,6 +86,6 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   avatarEmoji: {
-    fontSize: 24, // Scaled down for the 50x50 container
+    fontSize: 24,
   },
 });

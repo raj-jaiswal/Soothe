@@ -489,18 +489,6 @@ export default function PlaylistScreen() {
           setAddToPlaylistVisible(true);
         },
       },
-      {
-        icon: "share-social",
-        label: "Share with Friend",
-        onPress: () =>
-          Alert.alert("Shared!", `"${song.title}" shared to chat.`),
-      },
-      {
-        icon: "radio",
-        label: "Start Mood Radio",
-        onPress: () =>
-          Alert.alert("Mood Radio", `Starting radio based on "${song.title}"`),
-      },
     ]);
     setSheetVisible(true);
   };
@@ -767,12 +755,6 @@ export default function PlaylistScreen() {
           setRenameText(playlist.name);
           setRenameVisible(true);
         },
-      },
-      {
-        icon: "share-social",
-        label: "Share Playlist",
-        onPress: () =>
-          Alert.alert("Shared!", `"${playlist.name}" link copied.`),
       },
       {
         icon: "trash",

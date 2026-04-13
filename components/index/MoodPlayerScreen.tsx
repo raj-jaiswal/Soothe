@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   ScrollView,
@@ -9,11 +11,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SongActionsMenu from './SongActionsMenu';
 import { useSongPlayer } from './SongPlayerContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_SIZE = SCREEN_WIDTH - 48;
@@ -40,6 +42,9 @@ export default function MoodPlayerScreen({ moodId, moodLabel, onBack }: MoodPlay
   // ✅ New State for dynamic data
   const [songs, setSongs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedActionSong, setSelectedActionSong] = useState<any | null>(null);
+const [actionsVisible, setActionsVisible] = useState(false);
+
 
   const key = moodId.toLowerCase();
   const cover = MOOD_COVER[key] ?? { uri: 'https://picsum.photos/seed/default/400/400' };
@@ -165,15 +170,28 @@ export default function MoodPlayerScreen({ moodId, moodLabel, onBack }: MoodPlay
                 <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
                 <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
               </View>
-              <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="ellipsis-vertical" size={18} color="#555" />
-              </TouchableOpacity>
+              <TouchableOpacity
+  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  onPress={() => {
+    setSelectedActionSong(song);
+    setActionsVisible(true);
+  }}
+>
+  <Ionicons name="ellipsis-vertical" size={18} color="#555" />
+</TouchableOpacity>
+
             </TouchableOpacity>
           ))
         )}
 
         <View style={{ height: 70 }} />
       </ScrollView>
+      <SongActionsMenu
+  visible={actionsVisible}
+  song={selectedActionSong}
+  onClose={() => setActionsVisible(false)}
+/>
+
     </SafeAreaView>
   );
 }

@@ -222,7 +222,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
           },
           (status: AVPlaybackStatus) => {
             if (status.isLoaded && isMounted) {
-              if (isLoading) setIsLoading(false);
+              setIsLoading(false);
               if (!isSeeking.current) {
                 setCurrentTime(status.positionMillis / 1000);
                 if (status.durationMillis)
@@ -479,7 +479,9 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
         <View style={styles.outerPill}>
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => sound?.setPositionAsync(0)}
+            onPress={() =>
+              sound?.setPositionAsync(Math.max(0, currentTime * 1000 - 15000))
+            }
           >
             <Feather name="chevrons-left" size={24} color="white" />
           </TouchableOpacity>
@@ -526,7 +528,7 @@ export default function SongPlayerScreen({ song, onBack }: Props) {
             onPress={() =>
               sound?.setPositionAsync(
                 Math.min(
-                  realDuration * 1000 - 1000,
+                  realDuration * 1000,
                   currentTime * 1000 + 15000,
                 ),
               )

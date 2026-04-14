@@ -136,6 +136,13 @@ interface PlaylistPreviewCardProps {
   onPress: (playlist: PublicPlaylistUI) => void;
 }
 
+const getPlaylistSubtitle = (pl: PublicPlaylistUI): string => {
+  const owner = pl.source?.ownerName || pl.source?.userName || pl.source?.curator;
+  if (owner) return `By ${owner}`;
+  if (pl.songCount > 0) return `${pl.songCount} songs`;
+  return pl.description || "Public playlist";
+};
+
 const PlaylistPreviewCard: React.FC<PlaylistPreviewCardProps> = ({
   playlist,
   onPress,
@@ -368,7 +375,7 @@ const SeeAllModal: React.FC<SeeAllModalProps> = ({
                   key={pl.id}
                   style={modalStyles.row}
                   onPress={() => {
-                    onArtistPress({ name: pl.name } as Artist);
+                    onPlaylistPress(pl);
                     onClose();
                   }}
                   activeOpacity={0.75}

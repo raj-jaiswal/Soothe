@@ -636,12 +636,13 @@ export interface MoodItem {
 ```
 
 **Available Moods:**
-- 🎉 **Upbeat** - Bright, energetic colors
-- 😌 **Relaxed** - Calm, soothing colors
-- 🎯 **Focus** - Cool, concentration-friendly colors
-- ⚡ **Energetic** - Intense, vibrant colors
-- 💕 **Romantic** - Warm, romantic colors
-- 😢 **Melancholic** - Deep, introspective colors
+-  **Upbeat** 
+-  **Euphoric** 
+-  **Love** 
+-  **Angry** 
+-  **Grief** 
+-  **Anxious** 
+-  **Calm** 
 
 ### Theme Configuration
 

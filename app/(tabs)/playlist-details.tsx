@@ -20,7 +20,6 @@ const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.endsWith("/")
   : `${process.env.EXPO_PUBLIC_BACKEND_URL}/`;
 
 const PlaylistDetails = () => {
-  // Grab the new 'type' parameter alongside playlistId
   const { playlistId, type } = useLocalSearchParams<{
     playlistId: string;
     type: "public" | "personal" | "favourites";
@@ -32,81 +31,122 @@ const PlaylistDetails = () => {
   const [playlist, setPlaylist] = useState<any>(null);
   const [songs, setSongs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchPlaylistData = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-
-      // 1. Handle Favourites
-      if (type === "favourites") {
-        setPlaylist({ name: "Favourites" });
-        // Fetch all songs and filter (matching your PlaylistScreen logic)
-        const res = await fetch(`${BASE_URL}songs`, { headers });
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : [];
-        const favs = data.filter(
-          (s: any) => s.isFavourite || s.favorite || s.favourite,
-        );
-        setSongs(favs);
-      }
-      // 2. Handle Personal Playlists
-      else if (type === "personal") {
-        const res = await fetch(`${BASE_URL}personal-playlists/`, { headers });
-        const data = await res.json();
-        const targetPlaylist = data.find(
-          (p: any) => String(p.playlistId) === String(playlistId),
-        );
-
-        if (targetPlaylist) {
-          setPlaylist({ name: targetPlaylist.nameOfPlaylist || "My Playlist" });
-          // Fetch metadata for each song ID in the personal playlist
-          const songPromises = (targetPlaylist.songs || []).map((id: string) =>
-            fetch(`${BASE_URL}songs/${id}/metadata`, { headers }).then((res) =>
-              res.json(),
-            ),
-          );
-          const songsData = await Promise.all(songPromises);
-          setSongs(songsData.map((s) => s.metadata));
-        } else {
-          setPlaylist({ name: "Playlist Not Found" });
-        }
-      }
-      // 3. Handle Public Playlists (Default)
-      else {
-        const res = await fetch(`${BASE_URL}public-playlists/${playlistId}`, {
-          headers,
-        });
-        const data = await res.json();
-        setPlaylist({ name: data.name });
-
-        const songPromises = (data.songIds || []).map((id: string) =>
-          fetch(`${BASE_URL}songs/${id}/metadata`, { headers }).then((res) =>
-            res.json(),
-          ),
-        );
-        const songsData = await Promise.all(songPromises);
-        setSongs(songsData.map((s) => s.metadata));
-      }
-    } catch (err) {
-      console.log("Error fetching playlist data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [fetchingSongs, setFetchingSongs] = useState(false);
 
   useEffect(() => {
     if (!playlistId && type !== "favourites") return;
+
+    let isActive = true;
 
     setLoading(true);
     setSongs([]);
     setPlaylist(null);
 
+    const loadSongsConcurrently = (ids: string[], headers: any) => {
+      // Map triggers all network requests at the exact same time (in parallel)
+      const fetchPromises = ids.map((id, index) =>
+        fetch(`${BASE_URL}songs/${id}/metadata`, { headers })
+          .then((res) => res.json())
+          .then((songData) => {
+            if (isActive && songData?.metadata) {
+              setSongs((prev) => {
+                // Add the new song and inject its original intended position
+                const updated = [
+                  ...prev,
+                  { ...songData.metadata, _originalIndex: index },
+                ];
+                // Sort immediately so the UI doesn't jumble the playlist order based on network speed
+                return updated.sort(
+                  (a, b) => a._originalIndex - b._originalIndex,
+                );
+              });
+            }
+          })
+          .catch((err) => console.log(`Failed to fetch song ${id}`, err)),
+      );
+
+      // Once EVERY parallel request has either succeeded or failed, turn off the spinner
+      Promise.allSettled(fetchPromises).then(() => {
+        if (isActive) setFetchingSongs(false);
+      });
+    };
+
+    const fetchPlaylistData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const headers = { Authorization: `Bearer ${token}` };
+
+        // 1. Handle Favourites
+        if (type === "favourites") {
+          if (!isActive) return;
+          setPlaylist({ name: "Favourites" });
+
+          const res = await fetch(`${BASE_URL}songs`, { headers });
+          const text = await res.text();
+          const data = text ? JSON.parse(text) : [];
+          const favs = data.filter(
+            (s: any) => s.isFavourite || s.favorite || s.favourite,
+          );
+
+          if (isActive) {
+            setSongs(favs);
+            setLoading(false);
+          }
+        }
+        // 2. Handle Personal Playlists
+        else if (type === "personal") {
+          const res = await fetch(`${BASE_URL}personal-playlists/`, {
+            headers,
+          });
+          const data = await res.json();
+          const targetPlaylist = data.find(
+            (p: any) => String(p.playlistId) === String(playlistId),
+          );
+
+          if (targetPlaylist) {
+            if (!isActive) return;
+            setPlaylist({
+              name: targetPlaylist.nameOfPlaylist || "My Playlist",
+            });
+            setLoading(false); // Drop the full-screen loader
+            setFetchingSongs(true); // Start the footer spinner
+
+            loadSongsConcurrently(targetPlaylist.songs || [], headers);
+          } else {
+            if (isActive) {
+              setPlaylist({ name: "Playlist Not Found" });
+              setLoading(false);
+            }
+          }
+        }
+        // 3. Handle Public Playlists (Default)
+        else {
+          const res = await fetch(`${BASE_URL}public-playlists/${playlistId}`, {
+            headers,
+          });
+          const data = await res.json();
+
+          if (!isActive) return;
+          setPlaylist({ name: data.name });
+          setLoading(false); // Drop the full-screen loader
+          setFetchingSongs(true); // Start the footer spinner
+
+          loadSongsConcurrently(data.songIds || [], headers);
+        }
+      } catch (err) {
+        console.log("Error fetching playlist data:", err);
+        if (isActive) setLoading(false);
+      }
+    };
+
     fetchPlaylistData();
+
+    return () => {
+      isActive = false; // Cleanup if user navigates away fast
+    };
   }, [playlistId, type]);
 
   const handleSongPress = (song: any) => {
-    // Graceful fallbacks handle both raw /songs objects and /metadata objects
     openSong({
       id: String(song.song_ID || song.songId || song.id),
       title: song.name || song.title || "Untitled",
@@ -170,11 +210,20 @@ const PlaylistDetails = () => {
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <View style={{ marginTop: 40, alignItems: "center" }}>
-            <Text style={{ color: "#888" }}>
-              No songs in this playlist yet.
-            </Text>
-          </View>
+          !fetchingSongs ? (
+            <View style={{ marginTop: 40, alignItems: "center" }}>
+              <Text style={{ color: "#888" }}>
+                No songs in this playlist yet.
+              </Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          fetchingSongs ? (
+            <View style={{ paddingVertical: 20 }}>
+              <ActivityIndicator size="small" color={currentMood.colors[1]} />
+            </View>
+          ) : null
         }
       />
     </SafeAreaView>

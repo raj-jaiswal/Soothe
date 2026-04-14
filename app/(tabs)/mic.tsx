@@ -45,12 +45,12 @@ export default function MicScreen() {
         Animated.sequence([
           Animated.timing(anim, {
             toValue: Math.random() * 35 + 10,
-            duration: isRecording ? 150 : 400,
+            duration: isRecording ? 400 : 400,
             useNativeDriver: false,
           }),
           Animated.timing(anim, {
             toValue: Math.random() * 35 + 10,
-            duration: isRecording ? 150 : 400,
+            duration: isRecording ? 400 : 400,
             useNativeDriver: false,
           }),
         ]),

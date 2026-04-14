@@ -1,11 +1,11 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation, useRouter } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,42 +25,54 @@ export default function MicScreen() {
 
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // 🎙️ Speech recognition state
   const [isRecording, setIsRecording] = useState(false);
-  const partialRef = useRef(""); // live partial transcript
+  const partialRef = useRef("");
 
-  // 🔥 Animated values for bars
   const barAnims = useRef(
     Array.from({ length: BAR_COUNT }, () => new Animated.Value(10)),
   ).current;
 
-  // Pulse animation for mic button while recording
   const micPulse = useRef(new Animated.Value(1)).current;
 
-  // ─── Bar animation ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    const animateBars = () => {
-      const animations = barAnims.map((anim) =>
-        Animated.sequence([
-          Animated.timing(anim, {
-            toValue: Math.random() * 35 + 10,
-            duration: isRecording ? 400 : 400,
-            useNativeDriver: false,
-          }),
-          Animated.timing(anim, {
-            toValue: Math.random() * 35 + 10,
-            duration: isRecording ? 400 : 400,
-            useNativeDriver: false,
-          }),
-        ]),
-      );
-      Animated.parallel(animations).start(() => animateBars());
-    };
-    animateBars();
-  }, [isRecording]);
+  // ✅ USEFOCUSEFFECT: Only runs when the user is actively looking at this screen!
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true; // Flag to stop recursive loops cleanly
 
-  // ─── Mic pulse while recording ─────────────────────────────────────────────
+      barAnims.forEach((anim, i) => {
+        const animate = () => {
+          if (!isActive) return; // Kills the loop if we left the screen
+
+          Animated.sequence([
+            Animated.timing(anim, {
+              toValue: Math.random() * 35 + 15,
+              duration: 450 + i * 20,
+              useNativeDriver: false,
+            }),
+            Animated.timing(anim, {
+              toValue: Math.random() * 10 + 10,
+              duration: 450 + i * 15,
+              useNativeDriver: false,
+            }),
+          ]).start(({ finished }) => {
+            // Only continue the loop if it wasn't interrupted by navigating away
+            if (finished && isActive) {
+              animate();
+            }
+          });
+        };
+        animate();
+      });
+
+      // Cleanup function: runs the moment you navigate away
+      return () => {
+        isActive = false;
+        barAnims.forEach((anim) => anim.stopAnimation());
+      };
+    }, []),
+  );
+
+  // Mic pulse animation
   useEffect(() => {
     if (isRecording) {
       const pulse = Animated.loop(
@@ -84,20 +96,16 @@ export default function MicScreen() {
     }
   }, [isRecording]);
 
-  // ─── Speech recognition events ────────────────────────────────────────────
-
-  // Called continuously with live results while speaking
+  // --- Speech Recognition Logic ---
   useSpeechRecognitionEvent("result", (event) => {
     const transcript = event.results[0]?.transcript ?? "";
     partialRef.current = transcript;
-    // Show live preview in the text box inside brackets
     setText((prev) => {
-      const base = prev.replace(/ *\[.*?\]$/, ""); // strip previous live preview
+      const base = prev.replace(/ *\[.*?\]$/, "");
       return transcript ? `${base} [${transcript}]` : base;
     });
   });
 
-  // Called once recognition fully ends — commit the final text
   useSpeechRecognitionEvent("end", () => {
     setIsRecording(false);
     setText((prev) => {
@@ -120,7 +128,6 @@ export default function MicScreen() {
     }
   });
 
-  // ─── Mic button handler ────────────────────────────────────────────────────
   const handleMicPress = async () => {
     if (isRecording) {
       ExpoSpeechRecognitionModule.stop();
@@ -131,10 +138,7 @@ export default function MicScreen() {
     const { granted } =
       await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!granted) {
-      Alert.alert(
-        "Permission denied",
-        "Microphone access is needed to use voice input.",
-      );
+      Alert.alert("Permission denied", "Microphone access is needed.");
       return;
     }
 
@@ -143,13 +147,12 @@ export default function MicScreen() {
 
     ExpoSpeechRecognitionModule.start({
       lang: "en-US",
-      interimResults: true, // stream partial results live
-      continuous: false, // auto-stop after a pause
+      interimResults: true,
+      continuous: false,
       requiresOnDeviceRecognition: false,
     });
   };
 
-  // ─── Send mood ─────────────────────────────────────────────────────────────
   const handleSearchMood = async () => {
     const cleanText = text.replace(/ *\[.*?\]$/, "").trim();
     if (!cleanText) return;
@@ -157,13 +160,9 @@ export default function MicScreen() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
-
       let backendUrl =
         process.env.EXPO_PUBLIC_BACKEND_URL || "http://192.168.1.100:3000";
-      backendUrl = backendUrl.replace(/\/+$/, "");
-      if (backendUrl.endsWith("/api")) {
-        backendUrl = backendUrl.slice(0, -4);
-      }
+      backendUrl = backendUrl.replace(/\/+$/, "").replace(/\/api$/, "");
 
       const response = await fetch(`${backendUrl}/api/songs/suggest`, {
         method: "POST",
@@ -174,12 +173,7 @@ export default function MicScreen() {
         body: JSON.stringify({ text: cleanText }),
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error(`Failed to parse JSON. Status: ${response.status}`);
-      }
+      const data = await response.json();
 
       if (response.ok) {
         router.push({
@@ -195,17 +189,14 @@ export default function MicScreen() {
         Alert.alert("Error", data.error || "Failed to find songs");
       }
     } catch (error) {
-      console.error(error);
       Alert.alert("Error", "Could not connect to the server.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => navigation.navigate("index" as never)}>
           <Ionicons name="chevron-back" size={28} color="#EAEAEA" />
@@ -215,10 +206,8 @@ export default function MicScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Title */}
       <Text style={styles.title}>How's your mood today?</Text>
 
-      {/* Input Box */}
       <View style={styles.inputBox}>
         <TextInput
           placeholder="Type or tap the mic to speak…"
@@ -242,34 +231,15 @@ export default function MicScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Status label */}
-      {isRecording && (
-        <Text style={styles.statusLabel}>🔴 Listening… tap mic to stop</Text>
-      )}
-
-      {/* Animated Visualizer */}
       <View style={styles.visualizer}>
         {barAnims.map((anim, i) => (
           <View key={i} style={styles.barWrapper}>
-            <Animated.View
-              style={[
-                styles.bar,
-                { height: anim },
-                isRecording && styles.barActive,
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.bar,
-                { height: anim },
-                isRecording && styles.barActive,
-              ]}
-            />
+            <Animated.View style={[styles.bar, { height: anim }]} />
+            <Animated.View style={[styles.bar, { height: anim }]} />
           </View>
         ))}
       </View>
 
-      {/* Mic Button */}
       <View style={styles.micWrapper}>
         <Animated.View style={{ transform: [{ scale: micPulse }] }}>
           <TouchableOpacity
@@ -321,6 +291,7 @@ const styles = StyleSheet.create({
     color: "#EAEAEA",
     fontSize: 16,
     flex: 1,
+    textAlignVertical: "top",
   },
   sendBtn: {
     alignSelf: "flex-end",
@@ -335,19 +306,12 @@ const styles = StyleSheet.create({
     color: "#000",
     fontWeight: "600",
   },
-  statusLabel: {
-    color: "#EAEAEA",
-    textAlign: "center",
-    marginTop: 12,
-    fontSize: 13,
-    opacity: 0.7,
-  },
   visualizer: {
     height: 100,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 40,
     gap: 6,
   },
   barWrapper: {
@@ -358,10 +322,7 @@ const styles = StyleSheet.create({
     width: 6,
     backgroundColor: "#EAEAEA",
     borderRadius: 3,
-    marginVertical: -2,
-  },
-  barActive: {
-    backgroundColor: "#FF4D4D",
+    marginVertical: -1,
   },
   micWrapper: {
     alignItems: "center",

@@ -42,12 +42,12 @@ export const MOODS: MoodItem[] = [
     id: "grief",
     label: "Grief",
     image: require("@/assets/images/index_page/grief.png"),
-    colors: ["#313131", "#16213E", "#4A5568"],
+    colors: ["#2C3E50", "#4A5568", "#718096"],
   },
   {
     id: "anxious",
     label: "Anxious",
     image: require("@/assets/images/index_page/anxious.png"),
-    colors: ["#2C3E50", "#4A5568", "#718096"],
+    colors: ["#5f9a46", "#7db864", "#b0f194"],
   },
 ];

@@ -134,8 +134,8 @@ const LoginScreen: React.FC = () => {
       }
 
       router.replace("/(tabs)");
-    } catch {
-      setErrors({ general: "Network error. Please try again." });
+    } catch (e: any) {
+      setErrors({ general: `Error: ${e.message}. URL: ${API_BASE}` });
     } finally {
       setLoading(false);
     }

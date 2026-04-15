@@ -48,10 +48,21 @@
       "expo-audio",
       "./withGradleFix.js",
       "expo-speech-recognition",
-      ["expo-speech-recognition", {
-      "microphonePermission": "Allow $(BUNDLE_ID) to use the microphone",
-      "speechRecognitionPermission": "Allow $(BUNDLE_ID) to use speech recognition"
-    }]
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow $(BUNDLE_ID) to use the microphone",
+          "speechRecognitionPermission": "Allow $(BUNDLE_ID) to use speech recognition"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

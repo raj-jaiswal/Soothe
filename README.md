@@ -250,26 +250,10 @@ Create a `.env` file at the root of the project to configure API endpoints and s
 
 ```env
 # API Configuration
-EXPO_PUBLIC_API_BASE_URL=http://your-backend-url:3000/api
-EXPO_PUBLIC_SOCKET_URL=http://your-backend-url:3000
-
-# Feature Flags (optional)
-EXPO_PUBLIC_ENABLE_ANALYTICS=true
+EXPO_PUBLIC_BACKEND_URL=http://<IP Address>:3000/api/
 ```
 
 **Important:** In Expo, environment variables must be prefixed with `EXPO_PUBLIC_` to be accessible in the client.
-
-Example for development:
-```env
-EXPO_PUBLIC_API_BASE_URL=http://192.168.x.x:3000/api
-EXPO_PUBLIC_SOCKET_URL=http://192.168.x.x:3000
-```
-
-Example for production:
-```env
-EXPO_PUBLIC_API_BASE_URL=https://api.soothe.com/api
-EXPO_PUBLIC_SOCKET_URL=https://api.soothe.com
-```
 
 ---
 
@@ -311,8 +295,7 @@ cp .env.example .env
 Edit the `.env` file with your backend server URL:
 
 ```env
-EXPO_PUBLIC_API_BASE_URL=http://localhost:3000/api
-EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
+EXPO_PUBLIC_BACKEND_URL=http://<IP Address>:3000/api/
 ```
 
 ### Step 4: Start the Development Server
@@ -742,7 +725,7 @@ Check build progress in the Expo dashboard or terminal.
 - **Issue:** Network timeout or connection refused
 - **Solution:** 
   - Ensure backend is running on the correct port
-  - Check `EXPO_PUBLIC_API_BASE_URL` in `.env`
+  - Check `EXPO_PUBLIC_BACKEND_URL` in `.env`
   - For emulator, use `10.0.2.2:3000` (Android) or `localhost:3000` (iOS)
   - For physical device, use your machine's IP address
 
@@ -750,7 +733,7 @@ Check build progress in the Expo dashboard or terminal.
 - **Issue:** Chat functionality not working
 - **Solution:**
   - Verify backend supports Socket.io
-  - Check `EXPO_PUBLIC_SOCKET_URL` matches backend URL
+  - Check `EXPO_PUBLIC_BACKEND_URL` matches backend URL
   - Ensure JWT token is valid before connecting
 
 #### Audio Playback Issues
